@@ -171,7 +171,43 @@ public final class Projet {
     }
 
     private static final Pattern QUANTITE = Pattern.compile(
-            "^(\\d+)\\s*(shulkers?|sb|stacks?|st|s)?\\s*\\+?\\s*(\\d+)?$", Pattern.CASE_INSENSITIVE);
+            "^(\\d+)(?:[.,]0+)?\\s*(shulkers?|sb|stacks?|st|s)?\\s*\\+?\\s*(\\d+)?$", Pattern.CASE_INSENSITIVE);
+
+    /** Noms anglais affichés en jeu qui ne correspondent pas directement à l'ID. */
+    private static final Map<String, String> ALIAS = Map.ofEntries(
+            Map.entry("hay_bale", "hay_block"),
+            Map.entry("redstone_dust", "redstone"),
+            Map.entry("nether_quartz", "quartz"),
+            Map.entry("block_of_quartz", "quartz_block"),
+            Map.entry("smooth_quartz_block", "smooth_quartz"),
+            Map.entry("bricks_block", "bricks"),
+            Map.entry("jack_o'lantern", "jack_o_lantern"),
+            Map.entry("block_of_iron", "iron_block"),
+            Map.entry("block_of_gold", "gold_block"),
+            Map.entry("block_of_diamond", "diamond_block"),
+            Map.entry("block_of_emerald", "emerald_block"),
+            Map.entry("block_of_copper", "copper_block"),
+            Map.entry("block_of_redstone", "redstone_block"),
+            Map.entry("block_of_coal", "coal_block"),
+            Map.entry("lapis_lazuli_block", "lapis_block"),
+            Map.entry("block_of_lapis_lazuli", "lapis_block"),
+            Map.entry("block_of_netherite", "netherite_block"),
+            Map.entry("block_of_amethyst", "amethyst_block"),
+            Map.entry("block_of_bamboo", "bamboo_block"),
+            Map.entry("block_of_stripped_bamboo", "stripped_bamboo_block"));
+
+    /**
+     * Trouve l'item d'une cellule : ID ("stone_bricks", "create:andesite_casing")
+     * ou nom anglais du jeu ("Oak Planks", "Water Bucket"). Renvoie null si inconnu.
+     */
+    static Item trouverItem(String cellule) {
+        String nom = cellule.trim().toLowerCase().replaceAll("\\s+", "_");
+        if (nom.isEmpty()) return null;
+        if (!nom.contains(":")) nom = "minecraft:" + ALIAS.getOrDefault(nom, nom);
+        Identifier id = Identifier.tryParse(nom);
+        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) return null;
+        return BuiltInRegistries.ITEM.getValue(id);
+    }
 
     /** Lit "2 stacks", "2st", "1 stack 23", "1 shulker", "150". Renvoie -1 si illisible. */
     static int lireQuantite(String texte) {
@@ -184,28 +220,43 @@ public final class Projet {
         return n * mult + reste;
     }
 
-    /** Remplit les besoins à partir du CSV. Colonne A = bloc, colonne B = quantité. */
+    /**
+     * Remplit les besoins à partir du CSV. Les colonnes sont détectées ligne par ligne :
+     * la première cellule qui est un bloc connu = le bloc, la première qui est une quantité = la quantité.
+     * Les autres colonnes (image, "Acquired"…) sont ignorées.
+     */
     private String appliquerCsv(String csv) {
         besoins.clear();
         List<String> inconnus = new ArrayList<>();
         for (String ligne : csv.split("\\r?\\n")) {
-            List<String> cols = decouper(ligne);
-            if (cols.size() < 2) continue;
-            String nom = cols.get(0).trim().toLowerCase().replace(' ', '_');
-            int quantite = lireQuantite(cols.get(1));
-            if (nom.isEmpty() || quantite <= 0) continue; // ligne d'en-tête ou vide
-            if (!nom.contains(":")) nom = "minecraft:" + nom;
-            Identifier id = Identifier.tryParse(nom);
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-                inconnus.add(cols.get(0).trim());
+            Item item = null;
+            int quantite = -1;
+            String texte = null; // premier texte non numérique, pour signaler un bloc inconnu
+            for (String cellule : decouper(ligne)) {
+                String c = cellule.trim();
+                if (c.isEmpty()) continue;
+                int q = lireQuantite(c);
+                if (q > 0) {
+                    if (quantite < 0) quantite = q;
+                    continue;
+                }
+                if (item == null) {
+                    item = trouverItem(c);
+                    if (item == null && texte == null && !c.equalsIgnoreCase("true") && !c.equalsIgnoreCase("false")) {
+                        texte = c;
+                    }
+                }
+            }
+            if (quantite <= 0) continue; // ligne d'en-tête ou vide
+            if (item == null) {
+                if (texte != null) inconnus.add(texte);
                 continue;
             }
-            Item item = BuiltInRegistries.ITEM.getValue(id);
             besoins.merge(item, quantite, Integer::sum);
         }
         String msg = besoins.size() + " matériaux chargés.";
         if (!inconnus.isEmpty()) {
-            msg += " Inconnus (utilise l'ID, ex. stone_bricks) : " + String.join(", ", inconnus);
+            msg += " Inconnus (mets le nom anglais du jeu ou l'ID, ex. stone_bricks) : " + String.join(", ", inconnus);
         }
         return msg;
     }

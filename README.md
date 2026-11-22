@@ -4,16 +4,16 @@ Affiche en haut à gauche de l'écran la liste des matériaux d'un build, avec c
 
 ## La feuille Google Sheets
 
-| A (bloc)       | B (quantité)   |
-|----------------|----------------|
-| stone_bricks   | 10 stacks      |
-| oak_planks     | 1 stack 23     |
-| glass          | 200            |
-| deepslate_tiles| 1 shulker      |
+| Block Name     | Quantity        | Acquired |
+|----------------|-----------------|----------|
+| Glass          | 26 stacks + 17  | TRUE     |
+| Oak Planks     | 19 stacks + 50  | FALSE    |
+| stone_bricks   | 150             |          |
 
-- Colonne A : l'**ID** du bloc (`stone_bricks`, `oak_log`, `create:andesite_casing`…). Pour voir les ID en jeu : F3 + H, puis survoler l'objet.
-- Colonne B : un nombre, `2 stacks`, `2st`, `1 stack 23` ou `1 shulker` (= 1728).
-- La première ligne peut être un en-tête, elle est ignorée.
+- Les colonnes sont détectées toutes seules : le mod prend la première cellule qui est un bloc et la première qui est une quantité. Les autres colonnes (image, « Acquired »…) sont ignorées.
+- Bloc : le **nom anglais du jeu** (`Oak Planks`, `Water Bucket`) ou l'**ID** (`stone_bricks`, `create:andesite_casing`). Pour voir les ID : F3 + H en jeu, puis survoler l'objet.
+- Quantité : `150`, `2 stacks`, `26 stacks + 17`, `2st` ou `1 shulker` (= 1728).
+- Les lignes d'en-tête sont ignorées. Seul le premier onglet est lu (ou celui du `gid=` dans le lien).
 - Partage : « Tous les utilisateurs disposant du lien » en lecture.
 
 ## Commandes
