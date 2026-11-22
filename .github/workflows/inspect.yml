@@ -1,0 +1,20 @@
+name: Inspect
+on:
+  push:
+    branches: [inspect]
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { java-version: '25', distribution: 'temurin' }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew compileJava || true
+      - name: Inspect
+        run: |
+          JAR=$(grep -l "net/minecraft/client/Minecraft.class" $(find build ~/.gradle -name '*.jar' 2>/dev/null) 2>/dev/null | head -1)
+          echo "JAR=$JAR"
+          jar tf "$JAR" | grep -E '^net/minecraft/client/gui/[A-Za-z]+\.class$' | head -80
+          jar tf "$JAR" | grep -iE 'Graphics|GuiLayer|LayeredDraw' | head -40
+          for c in net.minecraft.world.item.ItemStackTemplate net.minecraft.world.item.component.ItemContainerContents net.minecraft.client.Options net.neoforged.neoforge.client.event.RegisterGuiLayersEvent net.neoforged.neoforge.client.gui.GuiLayer; do echo "=== $c"; javap -cp "$JAR:$(find ~/.gradle -name 'neoforge-*-universal.jar' -o -name 'neoforge-*.jar' 2>/dev/null | tr '\n' ':')" $c 2>&1 | head -60; done
