@@ -15,6 +15,8 @@ jobs:
         run: |
           JAR=$(grep -l "net/minecraft/client/Minecraft.class" $(find build ~/.gradle -name '*.jar' 2>/dev/null) 2>/dev/null | head -1)
           echo "JAR=$JAR"
-          jar tf "$JAR" | grep -E '^net/minecraft/client/gui/[A-Za-z]+\.class$' | head -80
-          jar tf "$JAR" | grep -iE 'Graphics|GuiLayer|LayeredDraw' | head -40
-          for c in net.minecraft.world.item.ItemStackTemplate net.minecraft.world.item.component.ItemContainerContents net.minecraft.client.Options net.neoforged.neoforge.client.event.RegisterGuiLayersEvent net.neoforged.neoforge.client.gui.GuiLayer; do echo "=== $c"; javap -cp "$JAR:$(find ~/.gradle -name 'neoforge-*-universal.jar' -o -name 'neoforge-*.jar' 2>/dev/null | tr '\n' ':')" $c 2>&1 | head -60; done
+          CP="$JAR"
+          javap -cp "$CP" net.minecraft.client.gui.GuiGraphicsExtractor | grep -E 'public .*(fill|text|String|item|Item)\(' | head -60
+          javap -cp "$CP" net.minecraft.client.Options | grep -iE 'hide|gui' | head
+          javap -cp "$CP" net.minecraft.client.Minecraft | grep -iE 'hide|gui|options' | head
+          javap -cp "$CP" net.minecraft.client.gui.Gui | grep -iE 'hidden|hide|visible' | head
