@@ -326,9 +326,8 @@ public final class Projet {
         compte.merge(stack.getItem(), stack.getCount(), Integer::sum);
         ItemContainerContents contenu = stack.get(DataComponents.CONTAINER);
         if (contenu != null) {
-            for (ItemStack dedans : contenu.nonEmptyItems()) {
-                compte.merge(dedans.getItem(), dedans.getCount(), Integer::sum);
-            }
+            contenu.nonEmptyItemCopyStream()
+                    .forEach(dedans -> compte.merge(dedans.getItem(), dedans.getCount(), Integer::sum));
         }
     }
 

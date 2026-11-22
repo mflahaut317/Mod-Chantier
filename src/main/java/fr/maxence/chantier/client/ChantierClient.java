@@ -9,7 +9,7 @@ import java.util.List;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
@@ -45,10 +45,10 @@ public class ChantierClient {
 
     private record Affichage(ItemStack stack, String texte, boolean fini) {}
 
-    static void dessiner(GuiGraphics g, DeltaTracker delta) {
+    static void dessiner(GuiGraphicsExtractor g, DeltaTracker delta) {
         Minecraft mc = Minecraft.getInstance();
         EtatPayload etat = EtatRecu.get();
-        if (etat == null || mc.options.hideGui || mc.player == null) return;
+        if (etat == null || mc.player == null) return;
         Font font = mc.font;
 
         long total = 0, fait = 0;
@@ -80,7 +80,7 @@ public class ChantierClient {
 
         int x = 4, y = 4;
         g.fill(x - 3, y - 3, x + largeur + 3, y + hauteur + 2, FOND);
-        g.drawString(font, entete, x, y, OR);
+        g.text(font, entete, x, y, OR);
 
         // Barre d'avancement
         int barreY = y + 11;
@@ -90,12 +90,12 @@ public class ChantierClient {
         int ly = barreY + 6;
         for (int i = 0; i < visibles; i++) {
             Affichage a = lignes.get(i);
-            g.renderItem(a.stack(), x, ly);
-            g.drawString(font, a.texte(), x + 18, ly + 4, a.fini() ? VERT : BLANC);
+            g.item(a.stack(), x, ly);
+            g.text(font, a.texte(), x + 18, ly + 4, a.fini() ? VERT : BLANC);
             ly += 17;
         }
         if (caches > 0) {
-            g.drawString(font, "+ " + caches + " autres", x, ly, GRIS);
+            g.text(font, "+ " + caches + " autres", x, ly, GRIS);
         }
     }
 
