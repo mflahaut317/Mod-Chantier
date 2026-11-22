@@ -1,0 +1,351 @@
+package fr.maxence.chantier;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Container;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.ItemContainerContents;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.neoforged.fml.loading.FMLPaths;
+import net.neoforged.neoforge.network.PacketDistributor;
+
+/**
+ * État du chantier en cours (un seul à la fois), côté serveur.
+ * Sauvegardé dans config/chantier.json.
+ */
+public final class Projet {
+    private static final Projet INSTANCE = new Projet();
+    public static Projet get() { return INSTANCE; }
+
+    /** Taille max de la zone (en blocs, sur X et Z) pour ne pas ralentir le serveur. */
+    public static final int TAILLE_MAX = 256;
+
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final HttpClient HTTP = HttpClient.newBuilder()
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+
+    /** Ce qui est écrit sur disque. */
+    private static final class Sauvegarde {
+        String titre = "Chantier";
+        String lien = null;
+        String dimension = null;
+        int[] coinA = null;
+        int[] coinB = null;
+        List<String> masques = new ArrayList<>();
+    }
+
+    private Sauvegarde donnees = new Sauvegarde();
+    /** Besoins dans l'ordre de la feuille : item -> quantité demandée. */
+    private final Map<Item, Integer> besoins = new LinkedHashMap<>();
+    /** Dernier comptage des coffres de la zone. */
+    private final Map<Item, Integer> stock = new HashMap<>();
+    private final Set<UUID> masques = new HashSet<>();
+
+    private Projet() {}
+
+    // ------------------------------------------------------------------ état
+
+    public boolean aUnLien() { return donnees.lien != null && !donnees.lien.isBlank(); }
+    public boolean aUneZone() { return donnees.dimension != null && donnees.coinA != null && donnees.coinB != null; }
+    public boolean estActif() { return !besoins.isEmpty() && aUneZone(); }
+    public String titre() { return donnees.titre; }
+
+    public void definirTitre(String titre) { donnees.titre = titre; sauver(); }
+
+    public void definirLien(String lien) { donnees.lien = lien.trim(); sauver(); }
+
+    public void definirZone(ResourceKey<Level> dimension, BlockPos a, BlockPos b) {
+        donnees.dimension = dimension.identifier().toString();
+        donnees.coinA = new int[]{a.getX(), a.getY(), a.getZ()};
+        donnees.coinB = new int[]{b.getX(), b.getY(), b.getZ()};
+        stock.clear();
+        sauver();
+    }
+
+    public void arreter() {
+        donnees = new Sauvegarde();
+        besoins.clear();
+        stock.clear();
+        masques.clear();
+        sauver();
+    }
+
+    public void masquer(UUID joueur, boolean masque) {
+        if (masque) masques.add(joueur); else masques.remove(joueur);
+        donnees.masques = masques.stream().map(UUID::toString).toList();
+        sauver();
+    }
+
+    public String resume() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Titre : ").append(donnees.titre).append('\n');
+        sb.append("Lien : ").append(aUnLien() ? donnees.lien : "aucun").append('\n');
+        if (aUneZone()) {
+            sb.append("Zone : ").append(donnees.dimension).append(" de ")
+              .append(fmt(donnees.coinA)).append(" à ").append(fmt(donnees.coinB)).append('\n');
+        } else {
+            sb.append("Zone : aucune\n");
+        }
+        sb.append("Matériaux : ").append(besoins.size()).append(" | Avancement : ").append(pourcentage()).append(" %");
+        return sb.toString();
+    }
+
+    private static String fmt(int[] p) { return p[0] + " " + p[1] + " " + p[2]; }
+
+    // ----------------------------------------------------------- Google Sheets
+
+    /**
+     * Transforme un lien Google Sheets (partage ou "publier sur le web") en lien d'export CSV.
+     */
+    static String versLienCsv(String lien) {
+        if (lien.contains("output=csv") || lien.contains("format=csv")) return lien;
+        Matcher id = Pattern.compile("/spreadsheets/d/([a-zA-Z0-9_-]+)").matcher(lien);
+        if (!id.find()) return lien;
+        Matcher gid = Pattern.compile("[#&?]gid=(\\d+)").matcher(lien);
+        String onglet = gid.find() ? gid.group(1) : "0";
+        return "https://docs.google.com/spreadsheets/d/" + id.group(1) + "/export?format=csv&gid=" + onglet;
+    }
+
+    /**
+     * Télécharge la feuille en arrière-plan, puis applique le résultat sur le thread du serveur.
+     * @param retour message à afficher à celui qui a lancé la commande (peut être null)
+     */
+    public void telechargerListe(MinecraftServer serveur, Consumer<String> retour) {
+        if (!aUnLien()) {
+            if (retour != null) retour.accept("Aucun lien. Utilise /chantier lien <lien Google Sheets>");
+            return;
+        }
+        HttpRequest requete = HttpRequest.newBuilder(URI.create(versLienCsv(donnees.lien)))
+                .timeout(Duration.ofSeconds(20)).GET().build();
+        HTTP.sendAsync(requete, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
+                .whenComplete((reponse, erreur) -> serveur.execute(() -> {
+                    String message;
+                    if (erreur != null) {
+                        message = "Impossible de lire la feuille : " + erreur.getMessage();
+                    } else if (reponse.statusCode() != 200 || reponse.body().trim().startsWith("<")) {
+                        message = "La feuille n'est pas accessible (code " + reponse.statusCode()
+                                + "). Partage-la en « Tous les utilisateurs disposant du lien ».";
+                    } else {
+                        message = appliquerCsv(reponse.body());
+                        recompter(serveur);
+                        diffuser(serveur);
+                    }
+                    Chantier.LOGGER.info("[Chantier] {}", message);
+                    if (retour != null) retour.accept(message);
+                }));
+    }
+
+    private static final Pattern QUANTITE = Pattern.compile(
+            "^(\\d+)\\s*(shulkers?|sb|stacks?|st|s)?\\s*\\+?\\s*(\\d+)?$", Pattern.CASE_INSENSITIVE);
+
+    /** Lit "2 stacks", "2st", "1 stack 23", "1 shulker", "150". Renvoie -1 si illisible. */
+    static int lireQuantite(String texte) {
+        Matcher m = QUANTITE.matcher(texte.trim());
+        if (!m.matches()) return -1;
+        int n = Integer.parseInt(m.group(1));
+        String unite = m.group(2) == null ? "" : m.group(2).toLowerCase();
+        int mult = unite.startsWith("sh") || unite.equals("sb") ? 64 * 27 : unite.isEmpty() ? 1 : 64;
+        int reste = m.group(3) == null ? 0 : Integer.parseInt(m.group(3));
+        return n * mult + reste;
+    }
+
+    /** Remplit les besoins à partir du CSV. Colonne A = bloc, colonne B = quantité. */
+    private String appliquerCsv(String csv) {
+        besoins.clear();
+        List<String> inconnus = new ArrayList<>();
+        for (String ligne : csv.split("\\r?\\n")) {
+            List<String> cols = decouper(ligne);
+            if (cols.size() < 2) continue;
+            String nom = cols.get(0).trim().toLowerCase().replace(' ', '_');
+            int quantite = lireQuantite(cols.get(1));
+            if (nom.isEmpty() || quantite <= 0) continue; // ligne d'en-tête ou vide
+            if (!nom.contains(":")) nom = "minecraft:" + nom;
+            Identifier id = Identifier.tryParse(nom);
+            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+                inconnus.add(cols.get(0).trim());
+                continue;
+            }
+            Item item = BuiltInRegistries.ITEM.getValue(id);
+            besoins.merge(item, quantite, Integer::sum);
+        }
+        String msg = besoins.size() + " matériaux chargés.";
+        if (!inconnus.isEmpty()) {
+            msg += " Inconnus (utilise l'ID, ex. stone_bricks) : " + String.join(", ", inconnus);
+        }
+        return msg;
+    }
+
+    /** Découpe une ligne CSV en gérant les guillemets. */
+    private static List<String> decouper(String ligne) {
+        List<String> cols = new ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        boolean guillemets = false;
+        for (int i = 0; i < ligne.length(); i++) {
+            char c = ligne.charAt(i);
+            if (c == '"') {
+                if (guillemets && i + 1 < ligne.length() && ligne.charAt(i + 1) == '"') { cur.append('"'); i++; }
+                else guillemets = !guillemets;
+            } else if (c == ',' && !guillemets) {
+                cols.add(cur.toString()); cur.setLength(0);
+            } else {
+                cur.append(c);
+            }
+        }
+        cols.add(cur.toString());
+        return cols;
+    }
+
+    // ---------------------------------------------------------------- comptage
+
+    /**
+     * Compte les items dans tous les conteneurs de la zone (coffres, tonneaux, shulkers posées…),
+     * y compris le contenu des shulkers rangées dans les coffres.
+     * Si une partie de la zone n'est pas chargée (personne à côté), on garde le dernier comptage.
+     */
+    public void recompter(MinecraftServer serveur) {
+        if (!aUneZone()) return;
+        Identifier dimId = Identifier.tryParse(donnees.dimension);
+        if (dimId == null) return;
+        ServerLevel monde = serveur.getLevel(ResourceKey.create(Registries.DIMENSION, dimId));
+        if (monde == null) return;
+
+        BoundingBox zone = BoundingBox.fromCorners(
+                new BlockPos(donnees.coinA[0], donnees.coinA[1], donnees.coinA[2]),
+                new BlockPos(donnees.coinB[0], donnees.coinB[1], donnees.coinB[2]));
+
+        List<LevelChunk> chunks = new ArrayList<>();
+        for (int cx = zone.minX() >> 4; cx <= zone.maxX() >> 4; cx++) {
+            for (int cz = zone.minZ() >> 4; cz <= zone.maxZ() >> 4; cz++) {
+                LevelChunk chunk = monde.getChunkSource().getChunkNow(cx, cz);
+                if (chunk == null) return; // zone pas entièrement chargée : on garde l'ancien comptage
+                chunks.add(chunk);
+            }
+        }
+
+        Map<Item, Integer> nouveau = new HashMap<>();
+        for (LevelChunk chunk : chunks) {
+            for (BlockEntity be : chunk.getBlockEntities().values()) {
+                if (!zone.isInside(be.getBlockPos()) || !(be instanceof Container conteneur)) continue;
+                for (int i = 0; i < conteneur.getContainerSize(); i++) {
+                    ajouter(nouveau, conteneur.getItem(i));
+                }
+            }
+        }
+        stock.clear();
+        stock.putAll(nouveau);
+    }
+
+    private static void ajouter(Map<Item, Integer> compte, ItemStack stack) {
+        if (stack.isEmpty()) return;
+        compte.merge(stack.getItem(), stack.getCount(), Integer::sum);
+        ItemContainerContents contenu = stack.get(DataComponents.CONTAINER);
+        if (contenu != null) {
+            for (ItemStack dedans : contenu.nonEmptyItems()) {
+                compte.merge(dedans.getItem(), dedans.getCount(), Integer::sum);
+            }
+        }
+    }
+
+    /** Avancement global : chaque ligne est plafonnée à 100 %, le surplus ne compte pas. */
+    public int pourcentage() {
+        long total = 0, fait = 0;
+        for (Map.Entry<Item, Integer> e : besoins.entrySet()) {
+            total += e.getValue();
+            fait += Math.min(e.getValue(), stock.getOrDefault(e.getKey(), 0));
+        }
+        return total == 0 ? 0 : (int) (fait * 100 / total);
+    }
+
+    // ------------------------------------------------------------------ réseau
+
+    private EtatPayload etat() {
+        List<EtatPayload.Ligne> lignes = new ArrayList<>();
+        for (Map.Entry<Item, Integer> e : besoins.entrySet()) {
+            lignes.add(new EtatPayload.Ligne(
+                    BuiltInRegistries.ITEM.getKey(e.getKey()).toString(),
+                    e.getValue(),
+                    stock.getOrDefault(e.getKey(), 0)));
+        }
+        return new EtatPayload(donnees.titre, lignes);
+    }
+
+    private static final EtatPayload VIDE = new EtatPayload("", List.of());
+
+    public void diffuser(MinecraftServer serveur) {
+        EtatPayload plein = estActif() ? etat() : VIDE;
+        for (ServerPlayer joueur : serveur.getPlayerList().getPlayers()) {
+            envoyer(joueur, plein);
+        }
+    }
+
+    public void envoyerA(ServerPlayer joueur) {
+        envoyer(joueur, estActif() ? etat() : VIDE);
+    }
+
+    private void envoyer(ServerPlayer joueur, EtatPayload etat) {
+        // Les joueurs sans le mod côté client sont ignorés (ils peuvent quand même jouer).
+        if (!joueur.connection.hasChannel(EtatPayload.TYPE)) return;
+        PacketDistributor.sendToPlayer(joueur, masques.contains(joueur.getUUID()) ? VIDE : etat);
+    }
+
+    // ----------------------------------------------------------- sauvegarde
+
+    private static Path fichier() { return FMLPaths.CONFIGDIR.get().resolve("chantier.json"); }
+
+    public void charger() {
+        Path f = fichier();
+        if (!Files.exists(f)) return;
+        try {
+            Sauvegarde lu = GSON.fromJson(Files.readString(f, StandardCharsets.UTF_8), Sauvegarde.class);
+            if (lu != null) donnees = lu;
+            if (donnees.masques == null) donnees.masques = new ArrayList<>();
+            masques.clear();
+            for (String s : donnees.masques) masques.add(UUID.fromString(s));
+        } catch (IOException | RuntimeException e) {
+            Chantier.LOGGER.error("[Chantier] Lecture de chantier.json impossible", e);
+        }
+    }
+
+    private void sauver() {
+        try {
+            Files.writeString(fichier(), GSON.toJson(donnees), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            Chantier.LOGGER.error("[Chantier] Écriture de chantier.json impossible", e);
+        }
+    }
+}
