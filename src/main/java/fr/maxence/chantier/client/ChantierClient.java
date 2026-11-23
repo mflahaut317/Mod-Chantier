@@ -39,7 +39,7 @@ public class ChantierClient {
     public ChantierClient() {
         // Permet à /chantier (côté serveur) d'ouvrir l'écran.
         ConfigRecue.ouvrirEcran = () -> Minecraft.getInstance().execute(
-                () -> Minecraft.getInstance().setScreen(new ChantierScreen()));
+                () -> Minecraft.getInstance().gui.setScreen(new ChantierScreen()));
     }
 
     @SubscribeEvent
@@ -58,7 +58,7 @@ public class ChantierClient {
     static void onEcranOuvert(ScreenEvent.Init.Post event) {
         if (!(event.getScreen() instanceof InventoryScreen ecran)) return;
         event.addListener(Button.builder(Component.literal("Chantier"),
-                        b -> Minecraft.getInstance().setScreen(new ChantierScreen()))
+                        b -> Minecraft.getInstance().gui.setScreen(new ChantierScreen()))
                 .bounds(4, ecran.height / 2 - 10, 56, 20)
                 .build());
     }
