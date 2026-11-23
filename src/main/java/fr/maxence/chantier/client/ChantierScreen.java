@@ -95,8 +95,11 @@ public class ChantierScreen extends Screen {
             }
         }).bounds(gauche + 196, haut + 152, 94, 20).build());
 
+        addRenderableWidget(Button.builder(Component.literal("Voir la liste complète"),
+                b -> minecraft.gui.setScreen(new ListeScreen(this)))
+                .bounds(width / 2 - 145, haut + 212, 140, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Fermer"), b -> onClose())
-                .bounds(width / 2 - 50, haut + 212, 100, 20).build());
+                .bounds(width / 2 + 5, haut + 212, 100, 20).build());
 
         dernierAffiche = null;
         remplirDepuisConfig();
