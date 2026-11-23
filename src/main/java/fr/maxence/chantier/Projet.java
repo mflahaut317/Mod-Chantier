@@ -136,9 +136,10 @@ public final class Projet {
         if (lien.contains("output=csv") || lien.contains("format=csv")) return lien;
         Matcher id = Pattern.compile("/spreadsheets/d/([a-zA-Z0-9_-]+)").matcher(lien);
         if (!id.find()) return lien;
+        String csv = "https://docs.google.com/spreadsheets/d/" + id.group(1) + "/export?format=csv";
+        // Sans gid, Google exporte le premier onglet (gid=0 n'existe pas toujours, ex. une copie).
         Matcher gid = Pattern.compile("[#&?]gid=(\\d+)").matcher(lien);
-        String onglet = gid.find() ? gid.group(1) : "0";
-        return "https://docs.google.com/spreadsheets/d/" + id.group(1) + "/export?format=csv&gid=" + onglet;
+        return gid.find() ? csv + "&gid=" + gid.group(1) : csv;
     }
 
     /**
@@ -150,16 +151,24 @@ public final class Projet {
             if (retour != null) retour.accept("Aucun lien. Utilise /chantier lien <lien Google Sheets>");
             return;
         }
-        HttpRequest requete = HttpRequest.newBuilder(URI.create(versLienCsv(donnees.lien)))
-                .timeout(Duration.ofSeconds(20)).GET().build();
+        HttpRequest requete;
+        try {
+            requete = HttpRequest.newBuilder(URI.create(versLienCsv(donnees.lien.trim())))
+                    .timeout(Duration.ofSeconds(20)).GET().build();
+        } catch (IllegalArgumentException e) {
+            if (retour != null) retour.accept("Lien invalide. Colle le lien complet de la feuille Google Sheets.");
+            return;
+        }
         HTTP.sendAsync(requete, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
                 .whenComplete((reponse, erreur) -> serveur.execute(() -> {
                     String message;
                     if (erreur != null) {
                         message = "Impossible de lire la feuille : " + erreur.getMessage();
                     } else if (reponse.statusCode() != 200 || reponse.body().trim().startsWith("<")) {
-                        message = "La feuille n'est pas accessible (code " + reponse.statusCode()
-                                + "). Partage-la en « Tous les utilisateurs disposant du lien ».";
+                        int code = reponse.statusCode();
+                        message = code == 401 || code == 403 || (code == 200)
+                                ? "La feuille n'est pas accessible. Partage-la en « Tous les utilisateurs disposant du lien »."
+                                : "Google refuse la lecture (code " + code + "). Vérifie le lien, ou mets le lien de l'onglet (avec gid=).";
                     } else {
                         message = appliquerCsv(reponse.body());
                         recompter(serveur);
