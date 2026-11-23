@@ -63,7 +63,7 @@ public class ChantierClient {
                 .build());
     }
 
-    private record Affichage(ItemStack stack, String texte, boolean fini) {}
+    private record Affichage(ItemStack stack, int pourcent, boolean fini) {}
 
     static void dessiner(GuiGraphicsExtractor g, DeltaTracker delta) {
         Minecraft mc = Minecraft.getInstance();
@@ -80,11 +80,8 @@ public class ChantierClient {
             if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) continue;
             ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.getValue(id));
             boolean fini = l.possede() >= l.requis();
-            String nom = stack.getHoverName().getString();
-            String texte = fini
-                    ? nom + " : " + quantite(l.requis()) + " ✔"
-                    : nom + " : " + quantite(l.possede()) + " / " + quantite(l.requis());
-            lignes.add(new Affichage(stack, texte, fini));
+            int pct = l.requis() == 0 ? 100 : (int) Math.min(100, (long) l.possede() * 100 / l.requis());
+            lignes.add(new Affichage(stack, pct, fini));
         }
         // Ce qui manque d'abord, ce qui est fini en bas.
         lignes.sort(Comparator.comparing(Affichage::fini));
@@ -94,8 +91,9 @@ public class ChantierClient {
         int visibles = Math.min(lignes.size(), LIGNES_MAX);
         int caches = lignes.size() - visibles;
 
-        int largeur = Math.max(font.width(entete), 100);
-        for (int i = 0; i < visibles; i++) largeur = Math.max(largeur, 18 + font.width(lignes.get(i).texte()));
+        // Ligne compacte : icône + mini-barre + %, le nom complet est dans « Voir la liste complète ».
+        final int barreLigne = 48;
+        int largeur = Math.max(font.width(entete), 19 + barreLigne + 4 + font.width("100 %"));
         int hauteur = 12 + 5 + visibles * 17 + (caches > 0 ? 10 : 0);
 
         // Centré verticalement sur le bord gauche, pour ne pas passer sous une minicarte en haut à gauche.
@@ -112,8 +110,12 @@ public class ChantierClient {
         int ly = barreY + 6;
         for (int i = 0; i < visibles; i++) {
             Affichage a = lignes.get(i);
+            int couleur = a.fini() ? VERT : OR;
             g.item(a.stack(), x, ly);
-            g.text(font, a.texte(), x + 18, ly + 4, a.fini() ? VERT : BLANC);
+            int bx = x + 19, by = ly + 6;
+            g.fill(bx, by, bx + barreLigne, by + 4, 0xFF333333);
+            g.fill(bx, by, bx + barreLigne * a.pourcent() / 100, by + 4, couleur);
+            g.text(font, a.fini() ? "✔" : a.pourcent() + " %", bx + barreLigne + 4, ly + 4, a.fini() ? VERT : BLANC);
             ly += 17;
         }
         if (caches > 0) {
