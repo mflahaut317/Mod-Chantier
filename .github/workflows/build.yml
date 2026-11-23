@@ -43,4 +43,5 @@ jobs:
           name: Dernière version
           body: Mod Chantier compilé automatiquement depuis le dernier commit de main.
           make_latest: true
+          overwrite_files: false
           files: build/libs/*.jar
