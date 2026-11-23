@@ -203,10 +203,64 @@ public final class Projet {
     static Item trouverItem(String cellule) {
         String nom = cellule.trim().toLowerCase().replaceAll("\\s+", "_");
         if (nom.isEmpty()) return null;
-        if (!nom.contains(":")) nom = "minecraft:" + ALIAS.getOrDefault(nom, nom);
-        Identifier id = Identifier.tryParse(nom);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) return null;
-        return BuiltInRegistries.ITEM.getValue(id);
+        // 1. ID exact ("stone_bricks", "create:andesite_casing") ou alias connu
+        String complet = nom.contains(":") ? nom : "minecraft:" + ALIAS.getOrDefault(nom, nom);
+        Identifier id = Identifier.tryParse(complet);
+        if (id != null && BuiltInRegistries.ITEM.containsKey(id)) return BuiltInRegistries.ITEM.getValue(id);
+        // 2. Nom anglais affiché en jeu ("Hay Bale", "Jack o'Lantern"), mods compris
+        return nomsAffiches().get(normaliser(cellule));
+    }
+
+    /** "Jack o'Lantern" -> "jackolantern" : minuscules, lettres et chiffres seulement. */
+    private static String normaliser(String s) {
+        return s.toLowerCase().replaceAll("[^a-z0-9]", "");
+    }
+
+    private static Map<String, Item> NOMS_AFFICHES = null;
+
+    /** Nom anglais normalisé -> item, construit une fois depuis les traductions du serveur. */
+    private static synchronized Map<String, Item> nomsAffiches() {
+        if (NOMS_AFFICHES == null) {
+            Map<String, Item> map = new HashMap<>();
+            net.minecraft.locale.Language langue = net.minecraft.locale.Language.getInstance();
+            for (Item item : BuiltInRegistries.ITEM) {
+                String cle = item.getDescriptionId();
+                if (langue.has(cle)) map.putIfAbsent(normaliser(langue.getOrDefault(cle)), item);
+            }
+            NOMS_AFFICHES = map;
+        }
+        return NOMS_AFFICHES;
+    }
+
+    /** Nom anglais le plus proche (fautes de frappe), ou null si rien d'assez proche. */
+    static String suggestion(String cellule) {
+        String cible = normaliser(cellule);
+        if (cible.length() < 3) return null;
+        net.minecraft.locale.Language langue = net.minecraft.locale.Language.getInstance();
+        String meilleur = null;
+        int distanceMin = Math.max(2, cible.length() / 4) + 1;
+        for (Item item : nomsAffiches().values()) {
+            String affiche = langue.getOrDefault(item.getDescriptionId());
+            int d = distance(cible, normaliser(affiche));
+            if (d < distanceMin) { distanceMin = d; meilleur = affiche; }
+        }
+        return meilleur;
+    }
+
+    /** Distance de Levenshtein (nombre de lettres à changer). */
+    private static int distance(String a, String b) {
+        if (Math.abs(a.length() - b.length()) > 4) return 99;
+        int[] prev = new int[b.length() + 1], cur = new int[b.length() + 1];
+        for (int j = 0; j <= b.length(); j++) prev[j] = j;
+        for (int i = 1; i <= a.length(); i++) {
+            cur[0] = i;
+            for (int j = 1; j <= b.length(); j++) {
+                int cout = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
+                cur[j] = Math.min(Math.min(cur[j - 1] + 1, prev[j] + 1), prev[j - 1] + cout);
+            }
+            int[] t = prev; prev = cur; cur = t;
+        }
+        return prev[b.length()];
     }
 
     /** Lit "2 stacks", "2st", "1 stack 23", "1 shulker", "150". Renvoie -1 si illisible. */
@@ -249,7 +303,10 @@ public final class Projet {
             }
             if (quantite <= 0) continue; // ligne d'en-tête ou vide
             if (item == null) {
-                if (texte != null) inconnus.add(texte);
+                if (texte != null) {
+                    String proche = suggestion(texte);
+                    inconnus.add(proche == null ? texte : texte + " (« " + proche + " » ?)");
+                }
                 continue;
             }
             besoins.merge(item, quantite, Integer::sum);
