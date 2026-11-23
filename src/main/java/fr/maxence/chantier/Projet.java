@@ -36,7 +36,10 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.ItemContainerContents;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.neoforged.fml.loading.FMLPaths;
@@ -67,7 +70,13 @@ public final class Projet {
         int[] coinA = null;
         int[] coinB = null;
         List<String> masques = new ArrayList<>();
+        /** Coffres choisis à la main (prioritaires sur la zone s'il y en a). */
+        String dimensionCoffres = null;
+        List<int[]> coffres = new ArrayList<>();
     }
+
+    /** Joueurs en mode « choisir les coffres » (non sauvegardé). */
+    private final Set<UUID> enSelection = new HashSet<>();
 
     private Sauvegarde donnees = new Sauvegarde();
     /** Besoins dans l'ordre de la feuille : item -> quantité demandée. */
@@ -82,7 +91,63 @@ public final class Projet {
 
     public boolean aUnLien() { return donnees.lien != null && !donnees.lien.isBlank(); }
     public boolean aUneZone() { return donnees.dimension != null && donnees.coinA != null && donnees.coinB != null; }
-    public boolean estActif() { return !besoins.isEmpty() && aUneZone(); }
+    public boolean aDesCoffres() { return donnees.coffres != null && !donnees.coffres.isEmpty(); }
+    public boolean estActif() { return !besoins.isEmpty() && (aDesCoffres() || aUneZone()); }
+    public int nombreCoffres() { return donnees.coffres == null ? 0 : donnees.coffres.size(); }
+    public boolean enSelection(UUID joueur) { return enSelection.contains(joueur); }
+
+    public void basculerSelection(UUID joueur, boolean actif) {
+        if (actif) enSelection.add(joueur); else enSelection.remove(joueur);
+    }
+
+    public void viderCoffres() {
+        donnees.coffres = new ArrayList<>();
+        donnees.dimensionCoffres = null;
+        stock.clear();
+        sauver();
+    }
+
+    private int indexCoffre(BlockPos pos) {
+        for (int i = 0; i < donnees.coffres.size(); i++) {
+            int[] c = donnees.coffres.get(i);
+            if (c[0] == pos.getX() && c[1] == pos.getY() && c[2] == pos.getZ()) return i;
+        }
+        return -1;
+    }
+
+    /**
+     * Ajoute ou retire le coffre cliqué (et sa moitié si c'est un coffre double).
+     * @return message pour le joueur
+     */
+    public String basculerCoffre(ServerLevel monde, BlockPos pos, MinecraftServer serveur) {
+        if (!(monde.getBlockEntity(pos) instanceof Container)) return "Ce bloc n'est pas un conteneur.";
+        String dim = monde.dimension().identifier().toString();
+        if (donnees.coffres == null) donnees.coffres = new ArrayList<>();
+        if (aDesCoffres() && donnees.dimensionCoffres != null && !donnees.dimensionCoffres.equals(dim)) {
+            return "Les coffres doivent être dans la même dimension. Vide la sélection d'abord.";
+        }
+        donnees.dimensionCoffres = dim;
+
+        List<BlockPos> blocs = new ArrayList<>();
+        blocs.add(pos);
+        BlockState etat = monde.getBlockState(pos);
+        if (etat.getBlock() instanceof ChestBlock && etat.getValue(ChestBlock.TYPE) != ChestType.SINGLE) {
+            blocs.add(pos.relative(ChestBlock.getConnectedDirection(etat)));
+        }
+
+        boolean retirer = indexCoffre(pos) >= 0;
+        for (BlockPos b : blocs) {
+            int i = indexCoffre(b);
+            if (retirer && i >= 0) donnees.coffres.remove(i);
+            if (!retirer && i < 0) donnees.coffres.add(new int[]{b.getX(), b.getY(), b.getZ()});
+        }
+        if (!aDesCoffres()) donnees.dimensionCoffres = null;
+        sauver();
+        recompter(serveur);
+        diffuser(serveur);
+        return (retirer ? "Coffre retiré" : "Coffre ajouté") + " (" + nombreCoffres() + " emplacements, "
+                + pourcentage() + " %)";
+    }
     public String titre() { return donnees.titre; }
 
     public void definirTitre(String titre) { donnees.titre = titre; sauver(); }
@@ -135,6 +200,7 @@ public final class Projet {
                 donnees.coinA == null ? "" : fmt(donnees.coinA),
                 donnees.coinB == null ? "" : fmt(donnees.coinB),
                 besoins.size(), pourcentage(), masques.contains(joueur),
+                nombreCoffres(), enSelection.contains(joueur),
                 message == null ? "" : message, ouvrir);
     }
 
@@ -396,6 +462,7 @@ public final class Projet {
      * Si une partie de la zone n'est pas chargée (personne à côté), on garde le dernier comptage.
      */
     public void recompter(MinecraftServer serveur) {
+        if (aDesCoffres()) { recompterCoffres(serveur); return; }
         if (!aUneZone()) return;
         Identifier dimId = Identifier.tryParse(donnees.dimension);
         if (dimId == null) return;
@@ -422,6 +489,26 @@ public final class Projet {
                 for (int i = 0; i < conteneur.getContainerSize(); i++) {
                     ajouter(nouveau, conteneur.getItem(i));
                 }
+            }
+        }
+        stock.clear();
+        stock.putAll(nouveau);
+    }
+
+    /** Compte seulement les coffres choisis à la main. Si l'un n'est pas chargé, on garde l'ancien comptage. */
+    private void recompterCoffres(MinecraftServer serveur) {
+        Identifier dimId = donnees.dimensionCoffres == null ? null : Identifier.tryParse(donnees.dimensionCoffres);
+        if (dimId == null) return;
+        ServerLevel monde = serveur.getLevel(ResourceKey.create(Registries.DIMENSION, dimId));
+        if (monde == null) return;
+
+        Map<Item, Integer> nouveau = new HashMap<>();
+        for (int[] c : donnees.coffres) {
+            BlockPos pos = new BlockPos(c[0], c[1], c[2]);
+            if (monde.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4) == null) return;
+            if (!(monde.getBlockEntity(pos) instanceof Container conteneur)) continue; // coffre cassé
+            for (int i = 0; i < conteneur.getContainerSize(); i++) {
+                ajouter(nouveau, conteneur.getItem(i));
             }
         }
         stock.clear();
@@ -491,6 +578,7 @@ public final class Projet {
             Sauvegarde lu = GSON.fromJson(Files.readString(f, StandardCharsets.UTF_8), Sauvegarde.class);
             if (lu != null) donnees = lu;
             if (donnees.masques == null) donnees.masques = new ArrayList<>();
+            if (donnees.coffres == null) donnees.coffres = new ArrayList<>();
             masques.clear();
             for (String s : donnees.masques) masques.add(UUID.fromString(s));
         } catch (IOException | RuntimeException e) {

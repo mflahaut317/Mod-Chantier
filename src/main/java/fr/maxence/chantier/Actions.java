@@ -1,6 +1,10 @@
 package fr.maxence.chantier;
 
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -43,6 +47,23 @@ public final class Actions {
                 projet.envoyerA(joueur);
                 repondre(joueur, action.action().equals("masquer") ? "Liste masquée." : "Liste affichée.", false);
             }
+            case "selection_on" -> {
+                projet.basculerSelection(joueur.getUUID(), true);
+                joueur.sendSystemMessage(Component.literal(
+                        "§eMode sélection : clic droit sur les coffres pour les ajouter ou les retirer. "
+                                + "Rouvre l'écran Chantier et clique sur « Terminer » quand c'est fini."));
+                repondre(joueur, "Mode sélection actif.", false);
+            }
+            case "selection_off" -> {
+                projet.basculerSelection(joueur.getUUID(), false);
+                repondre(joueur, "Sélection terminée : " + projet.nombreCoffres() + " emplacements de coffre.", false);
+            }
+            case "vider_coffres" -> {
+                projet.viderCoffres();
+                projet.recompter(serveur);
+                projet.diffuser(serveur);
+                repondre(joueur, "Sélection vidée. Le mod utilise la zone, si elle est définie.", false);
+            }
             case "arreter" -> {
                 projet.arreter();
                 projet.diffuser(serveur);
@@ -50,6 +71,17 @@ public final class Actions {
             }
             default -> { }
         }
+    }
+
+    /** En mode sélection, un clic droit sur un conteneur l'ajoute ou le retire (sans l'ouvrir). */
+    static void onClicDroit(PlayerInteractEvent.RightClickBlock event) {
+        if (!(event.getEntity() instanceof ServerPlayer joueur)) return;
+        if (!Projet.get().enSelection(joueur.getUUID())) return;
+        if (event.getHand() != InteractionHand.MAIN_HAND) { event.setCanceled(true); return; }
+        if (!(joueur.level() instanceof ServerLevel monde)) return;
+        event.setCanceled(true);
+        String message = Projet.get().basculerCoffre(monde, event.getPos(), monde.getServer());
+        joueur.sendSystemMessage(Component.literal(message));
     }
 
     /** Envoie les réglages à jour (et un message) au joueur, s'il a le mod. */

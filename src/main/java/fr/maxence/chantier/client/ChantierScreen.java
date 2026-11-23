@@ -24,6 +24,7 @@ public class ChantierScreen extends Screen {
     private EditBox champTitre;
     private EditBox champLien;
     private Button boutonMasquer;
+    private Button boutonSelection;
     private boolean confirmerArret = false;
     private ConfigPayload dernierAffiche = null;
 
@@ -41,7 +42,7 @@ public class ChantierScreen extends Screen {
     @Override
     protected void init() {
         gauche = (width - LARGEUR) / 2;
-        haut = Math.max(10, height / 2 - 100);
+        haut = Math.max(6, height / 2 - 115);
         int x = gauche + 50;
 
         // Titre
@@ -66,11 +67,23 @@ public class ChantierScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Coin 2 ici"),
                 b -> envoyer("coin2", "")).bounds(x + 123, haut + 76, 117, 20).build());
 
+        // Coffres choisis à la main
+        boutonSelection = addRenderableWidget(Button.builder(Component.literal("Choisir les coffres"), b -> {
+            if (enSelection()) {
+                envoyer("selection_off", "");
+            } else {
+                envoyer("selection_on", "");
+                onClose(); // ferme l'écran pour pouvoir cliquer sur les coffres
+            }
+        }).bounds(x, haut + 114, 150, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Vider"),
+                b -> envoyer("vider_coffres", "")).bounds(x + 155, haut + 114, 85, 20).build());
+
         // Actions
         addRenderableWidget(Button.builder(Component.literal("Relire la feuille"),
-                b -> envoyer("actualiser", "")).bounds(gauche, haut + 122, 94, 20).build());
+                b -> envoyer("actualiser", "")).bounds(gauche, haut + 152, 94, 20).build());
         boutonMasquer = addRenderableWidget(Button.builder(Component.literal("Masquer la liste"),
-                b -> envoyer(estMasque() ? "afficher" : "masquer", "")).bounds(gauche + 98, haut + 122, 94, 20).build());
+                b -> envoyer(estMasque() ? "afficher" : "masquer", "")).bounds(gauche + 98, haut + 152, 94, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Arrêter"), b -> {
             if (confirmerArret) {
                 envoyer("arreter", "");
@@ -80,14 +93,19 @@ public class ChantierScreen extends Screen {
                 confirmerArret = true;
                 b.setMessage(Component.literal("Sûr ? Re-clique"));
             }
-        }).bounds(gauche + 196, haut + 122, 94, 20).build());
+        }).bounds(gauche + 196, haut + 152, 94, 20).build());
 
         addRenderableWidget(Button.builder(Component.literal("Fermer"), b -> onClose())
-                .bounds(width / 2 - 50, haut + 186, 100, 20).build());
+                .bounds(width / 2 - 50, haut + 212, 100, 20).build());
 
         dernierAffiche = null;
         remplirDepuisConfig();
         envoyer("config", ""); // demande les réglages à jour au serveur
+    }
+
+    private boolean enSelection() {
+        ConfigPayload c = ConfigRecue.get();
+        return c != null && c.selection();
     }
 
     private boolean estMasque() {
@@ -102,6 +120,7 @@ public class ChantierScreen extends Screen {
         if (!champTitre.isFocused()) champTitre.setValue(c.titre());
         if (!champLien.isFocused()) champLien.setValue(c.lien());
         boutonMasquer.setMessage(Component.literal(c.masque() ? "Afficher la liste" : "Masquer la liste"));
+        boutonSelection.setMessage(Component.literal(c.selection() ? "Terminer la sélection" : "Choisir les coffres"));
         dernierAffiche = c;
     }
 
@@ -121,20 +140,27 @@ public class ChantierScreen extends Screen {
         g.text(font, "Titre", gauche, haut + 25, BLANC);
         g.text(font, "Lien", gauche, haut + 51, BLANC);
         g.text(font, "Zone", gauche, haut + 82, BLANC);
+        g.text(font, "Coffres", gauche, haut + 120, BLANC);
+        if (c != null) {
+            String infoCoffres = c.coffres() == 0
+                    ? "Aucun coffre choisi : le mod compte la zone."
+                    : c.coffres() + " emplacements choisis (la zone est ignorée).";
+            g.text(font, infoCoffres, gauche + 50, haut + 138, GRIS);
+        }
 
         String coin1 = c == null || c.coin1().isEmpty() ? "—" : c.coin1();
         String coin2 = c == null || c.coin2().isEmpty() ? "—" : c.coin2();
         g.text(font, "Coin 1 : " + coin1 + "     Coin 2 : " + coin2, gauche + 50, haut + 102, GRIS);
 
         if (c == null) {
-            g.text(font, "En attente du serveur…", gauche, haut + 152, GRIS);
+            g.text(font, "En attente du serveur…", gauche, haut + 180, GRIS);
             return;
         }
         String etat = c.materiaux() + " matériaux · " + c.pourcent() + " %";
-        g.text(font, etat, gauche, haut + 152, c.pourcent() >= 100 ? VERT : OR);
+        g.text(font, etat, gauche, haut + 180, c.pourcent() >= 100 ? VERT : OR);
         if (!c.message().isEmpty()) {
             String msg = font.plainSubstrByWidth(c.message(), LARGEUR);
-            g.text(font, msg, gauche, haut + 166, BLANC);
+            g.text(font, msg, gauche, haut + 194, BLANC);
         }
     }
 

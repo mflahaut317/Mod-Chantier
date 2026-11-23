@@ -33,6 +33,7 @@ public class Chantier {
         NeoForge.EVENT_BUS.addListener(Chantier::onServeurDemarre);
         NeoForge.EVENT_BUS.addListener(Chantier::onTick);
         NeoForge.EVENT_BUS.addListener(Chantier::onConnexion);
+        NeoForge.EVENT_BUS.addListener(Actions::onClicDroit);
     }
 
     private static void onCommandes(RegisterCommandsEvent event) {
