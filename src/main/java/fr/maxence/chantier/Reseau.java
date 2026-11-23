@@ -8,7 +8,7 @@ public final class Reseau {
     private Reseau() {}
 
     static void enregistrer(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("2").optional();
+        PayloadRegistrar registrar = event.registrar("3").optional();
         // Les gestionnaires côté joueur ne font que stocker les données : aucune classe client chargée côté serveur.
         registrar.playToClient(EtatPayload.TYPE, EtatPayload.CODEC,
                 (payload, contexte) -> EtatRecu.definir(payload));

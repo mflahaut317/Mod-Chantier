@@ -37,11 +37,6 @@ public final class Actions {
                 repondre(joueur, "Lecture de la feuille…", false);
                 projet.telechargerListe(serveur, message -> repondre(joueur, message, false));
             }
-            case "coin1", "coin2" -> {
-                int numero = action.action().equals("coin1") ? 1 : 2;
-                String message = projet.definirCoin(numero, joueur.level().dimension(), joueur.blockPosition(), serveur);
-                repondre(joueur, message, false);
-            }
             case "masquer", "afficher" -> {
                 projet.masquer(joueur.getUUID(), action.action().equals("masquer"));
                 projet.envoyerA(joueur);

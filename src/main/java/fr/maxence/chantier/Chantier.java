@@ -14,7 +14,7 @@ import org.slf4j.Logger;
 
 /**
  * Point d'entrée du mod "Chantier".
- * Côté serveur : lit la liste de matériaux, compte les coffres de la zone, envoie l'état aux joueurs.
+ * Côté serveur : lit la liste de matériaux, compte les coffres choisis et les inventaires, envoie l'état aux joueurs.
  * Côté client : voir {@link fr.maxence.chantier.client.ChantierClient} pour l'affichage.
  */
 @Mod(Chantier.MODID)

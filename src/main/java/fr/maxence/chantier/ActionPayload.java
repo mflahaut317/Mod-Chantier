@@ -8,7 +8,7 @@ import net.minecraft.resources.Identifier;
 
 /**
  * Paquet joueur -> serveur : un bouton de l'écran Chantier a été cliqué.
- * action : "config", "lien", "titre", "coin1", "coin2", "actualiser", "masquer", "afficher", "arreter".
+ * action : "config", "lien", "titre", "actualiser", "selection_on", "selection_off", "vider_coffres", "masquer", "afficher", "arreter".
  * valeur : texte associé (lien, titre), vide sinon.
  */
 public record ActionPayload(String action, String valeur) implements CustomPacketPayload {

@@ -41,8 +41,6 @@ import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
-import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -54,8 +52,6 @@ public final class Projet {
     private static final Projet INSTANCE = new Projet();
     public static Projet get() { return INSTANCE; }
 
-    /** Taille max de la zone (en blocs, sur X et Z) pour ne pas ralentir le serveur. */
-    public static final int TAILLE_MAX = 256;
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final HttpClient HTTP = HttpClient.newBuilder()
@@ -67,11 +63,8 @@ public final class Projet {
     private static final class Sauvegarde {
         String titre = "Chantier";
         String lien = null;
-        String dimension = null;
-        int[] coinA = null;
-        int[] coinB = null;
         List<String> masques = new ArrayList<>();
-        /** Coffres choisis à la main (prioritaires sur la zone s'il y en a). */
+        /** Coffres choisis à la main. */
         String dimensionCoffres = null;
         List<int[]> coffres = new ArrayList<>();
         /** true quand toute la liste a été réunie : la liste est masquée jusqu'à une nouvelle liste. */
@@ -84,7 +77,7 @@ public final class Projet {
     private Sauvegarde donnees = new Sauvegarde();
     /** Besoins dans l'ordre de la feuille : item -> quantité demandée. */
     private final Map<Item, Integer> besoins = new LinkedHashMap<>();
-    /** Dernier comptage des coffres de la zone. */
+    /** Dernier comptage total (coffres choisis + inventaires des joueurs connectés). */
     private final Map<Item, Integer> stock = new HashMap<>();
     /** Dernier comptage des coffres choisis (gardé quand ils ne sont pas chargés). */
     private final Map<Item, Integer> stockCoffres = new HashMap<>();
@@ -95,7 +88,6 @@ public final class Projet {
     // ------------------------------------------------------------------ état
 
     public boolean aUnLien() { return donnees.lien != null && !donnees.lien.isBlank(); }
-    public boolean aUneZone() { return donnees.dimension != null && donnees.coinA != null && donnees.coinB != null; }
     public boolean aDesCoffres() { return donnees.coffres != null && !donnees.coffres.isEmpty(); }
     public boolean estActif() { return !besoins.isEmpty() && !donnees.termine; }
     public boolean estTermine() { return donnees.termine; }
@@ -161,51 +153,11 @@ public final class Projet {
 
     public void definirLien(String lien) { donnees.lien = lien.trim(); sauver(); }
 
-    public void definirZone(ResourceKey<Level> dimension, BlockPos a, BlockPos b) {
-        donnees.dimension = dimension.identifier().toString();
-        donnees.coinA = new int[]{a.getX(), a.getY(), a.getZ()};
-        donnees.coinB = new int[]{b.getX(), b.getY(), b.getZ()};
-        stock.clear();
-        sauver();
-    }
-
-    /**
-     * Pose un coin de la zone (1 ou 2) à la position du joueur, depuis l'écran.
-     * @return message à afficher au joueur
-     */
-    public String definirCoin(int numero, ResourceKey<Level> dimension, BlockPos pos, MinecraftServer serveur) {
-        String dim = dimension.identifier().toString();
-        if (donnees.dimension != null && !donnees.dimension.equals(dim)) {
-            // Changement de dimension : l'autre coin n'a plus de sens.
-            donnees.coinA = null;
-            donnees.coinB = null;
-        }
-        donnees.dimension = dim;
-        int[] p = {pos.getX(), pos.getY(), pos.getZ()};
-        if (numero == 1) donnees.coinA = p; else donnees.coinB = p;
-
-        if (donnees.coinA != null && donnees.coinB != null
-                && (Math.abs(donnees.coinA[0] - donnees.coinB[0]) >= TAILLE_MAX
-                || Math.abs(donnees.coinA[2] - donnees.coinB[2]) >= TAILLE_MAX)) {
-            if (numero == 1) donnees.coinA = null; else donnees.coinB = null;
-            sauver();
-            return "Zone trop grande (max " + TAILLE_MAX + " blocs de côté). Rapproche-toi de l'autre coin.";
-        }
-        stock.clear();
-        sauver();
-        if (!aUneZone()) return "Coin " + numero + " posé. Va à l'autre bout de la salle pour poser l'autre coin.";
-        recompter(serveur);
-        diffuser(serveur);
-        return "Zone enregistrée. Avancement : " + pourcentage() + " %";
-    }
-
     /** Réglages actuels, pour l'écran Chantier du joueur. */
     public ConfigPayload config(UUID joueur, String message, boolean ouvrir) {
         return new ConfigPayload(
                 donnees.titre == null ? "" : donnees.titre,
                 donnees.lien == null ? "" : donnees.lien,
-                donnees.coinA == null ? "" : fmt(donnees.coinA),
-                donnees.coinB == null ? "" : fmt(donnees.coinB),
                 besoins.size(), pourcentage(), masques.contains(joueur),
                 nombreCoffres(), enSelection.contains(joueur),
                 message != null ? message
@@ -231,17 +183,12 @@ public final class Projet {
         StringBuilder sb = new StringBuilder();
         sb.append("Titre : ").append(donnees.titre).append('\n');
         sb.append("Lien : ").append(aUnLien() ? donnees.lien : "aucun").append('\n');
-        if (aUneZone()) {
-            sb.append("Zone : ").append(donnees.dimension).append(" de ")
-              .append(fmt(donnees.coinA)).append(" à ").append(fmt(donnees.coinB)).append('\n');
-        } else {
-            sb.append("Zone : aucune\n");
-        }
+        sb.append("Coffres choisis : ").append(nombreCoffres()).append('
+');
         sb.append("Matériaux : ").append(besoins.size()).append(" | Avancement : ").append(pourcentage()).append(" %");
         return sb.toString();
     }
 
-    private static String fmt(int[] p) { return p[0] + " " + p[1] + " " + p[2]; }
 
     // ----------------------------------------------------------- Google Sheets
 
@@ -468,12 +415,10 @@ public final class Projet {
     // ---------------------------------------------------------------- comptage
 
     /**
-     * Compte les items dans tous les conteneurs de la zone (coffres, tonneaux, shulkers posées…),
-     * y compris le contenu des shulkers rangées dans les coffres.
-     * Si une partie de la zone n'est pas chargée (personne à côté), on garde le dernier comptage.
+     * Recompte : coffres choisis à la main (contenu des shulkers compris) + inventaires des joueurs connectés.
+     * Si un coffre n'est pas chargé (personne à côté), on garde le dernier comptage des coffres.
      */
     public void recompter(MinecraftServer serveur) {
-        // La zone n'est plus utilisée : seuls les coffres choisis à la main comptent.
         if (aDesCoffres()) recompterCoffres(serveur); else stockCoffres.clear();
         stock.clear();
         stock.putAll(stockCoffres);
@@ -483,36 +428,6 @@ public final class Projet {
             for (int i = 0; i < inventaire.getContainerSize(); i++) ajouter(stock, inventaire.getItem(i));
         }
         verifierFin(serveur);
-        if (true) return;
-        Identifier dimId = Identifier.tryParse(donnees.dimension);
-        if (dimId == null) return;
-        ServerLevel monde = serveur.getLevel(ResourceKey.create(Registries.DIMENSION, dimId));
-        if (monde == null) return;
-
-        BoundingBox zone = BoundingBox.fromCorners(
-                new BlockPos(donnees.coinA[0], donnees.coinA[1], donnees.coinA[2]),
-                new BlockPos(donnees.coinB[0], donnees.coinB[1], donnees.coinB[2]));
-
-        List<LevelChunk> chunks = new ArrayList<>();
-        for (int cx = zone.minX() >> 4; cx <= zone.maxX() >> 4; cx++) {
-            for (int cz = zone.minZ() >> 4; cz <= zone.maxZ() >> 4; cz++) {
-                LevelChunk chunk = monde.getChunkSource().getChunkNow(cx, cz);
-                if (chunk == null) return; // zone pas entièrement chargée : on garde l'ancien comptage
-                chunks.add(chunk);
-            }
-        }
-
-        Map<Item, Integer> nouveau = new HashMap<>();
-        for (LevelChunk chunk : chunks) {
-            for (BlockEntity be : chunk.getBlockEntities().values()) {
-                if (!zone.isInside(be.getBlockPos()) || !(be instanceof Container conteneur)) continue;
-                for (int i = 0; i < conteneur.getContainerSize(); i++) {
-                    ajouter(nouveau, conteneur.getItem(i));
-                }
-            }
-        }
-        stock.clear();
-        stock.putAll(nouveau);
     }
 
     /** Compte seulement les coffres choisis à la main. Si l'un n'est pas chargé, on garde l'ancien comptage. */

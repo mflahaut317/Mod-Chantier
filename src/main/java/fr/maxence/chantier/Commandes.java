@@ -5,15 +5,11 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
  * /chantier lien <lien>        lien Google Sheets (colonne A : bloc, colonne B : quantité)
- * /chantier zone <coin1> <coin2>  zone des coffres du chantier (~ ~ ~ accepté)
  * /chantier actualiser         relit la feuille
  * /chantier titre <texte>      nom affiché en haut de la liste
  * /chantier masquer | afficher cache ou montre la liste pour soi
@@ -40,10 +36,6 @@ public final class Commandes {
                                     actualiser(ctx);
                                     return 1;
                                 })))
-                .then(Commands.literal("zone")
-                        .then(Commands.argument("coin1", BlockPosArgument.blockPos())
-                                .then(Commands.argument("coin2", BlockPosArgument.blockPos())
-                                        .executes(Commandes::zone))))
                 .then(Commands.literal("actualiser").executes(ctx -> { actualiser(ctx); return 1; }))
                 .then(Commands.literal("titre")
                         .then(Commands.argument("titre", StringArgumentType.greedyString())
@@ -62,22 +54,6 @@ public final class Commandes {
                     msg(ctx, "Chantier effacé.");
                     return 1;
                 })));
-    }
-
-    private static int zone(CommandContext<CommandSourceStack> ctx) {
-        BlockPos a = BlockPosArgument.getBlockPos(ctx, "coin1");
-        BlockPos b = BlockPosArgument.getBlockPos(ctx, "coin2");
-        if (Math.abs(a.getX() - b.getX()) >= Projet.TAILLE_MAX || Math.abs(a.getZ() - b.getZ()) >= Projet.TAILLE_MAX) {
-            ctx.getSource().sendFailure(Component.literal(
-                    "Zone trop grande (max " + Projet.TAILLE_MAX + " blocs de côté)."));
-            return 0;
-        }
-        MinecraftServer serveur = ctx.getSource().getServer();
-        Projet.get().definirZone(ctx.getSource().getLevel().dimension(), a, b);
-        Projet.get().recompter(serveur);
-        Projet.get().diffuser(serveur);
-        msg(ctx, "Zone enregistrée. Avancement : " + Projet.get().pourcentage() + " %");
-        return 1;
     }
 
     private static void actualiser(CommandContext<CommandSourceStack> ctx) {

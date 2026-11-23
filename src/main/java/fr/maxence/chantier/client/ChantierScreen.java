@@ -11,7 +11,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 /**
- * Écran Chantier : lien de la feuille, titre, zone des coffres, affichage.
+ * Écran Chantier : lien de la feuille, titre, coffres choisis, affichage.
  * Ouvert par le bouton « Chantier » de l'inventaire ou la commande /chantier.
  */
 public class ChantierScreen extends Screen {
