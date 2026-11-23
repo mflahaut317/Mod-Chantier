@@ -183,8 +183,7 @@ public final class Projet {
         StringBuilder sb = new StringBuilder();
         sb.append("Titre : ").append(donnees.titre).append('\n');
         sb.append("Lien : ").append(aUnLien() ? donnees.lien : "aucun").append('\n');
-        sb.append("Coffres choisis : ").append(nombreCoffres()).append('
-');
+        sb.append("Coffres choisis : ").append(nombreCoffres()).append('\n');
         sb.append("Matériaux : ").append(besoins.size()).append(" | Avancement : ").append(pourcentage()).append(" %");
         return sb.toString();
     }
