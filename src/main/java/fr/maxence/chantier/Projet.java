@@ -28,6 +28,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -73,6 +74,8 @@ public final class Projet {
         /** Coffres choisis à la main (prioritaires sur la zone s'il y en a). */
         String dimensionCoffres = null;
         List<int[]> coffres = new ArrayList<>();
+        /** true quand toute la liste a été réunie : la liste est masquée jusqu'à une nouvelle liste. */
+        boolean termine = false;
     }
 
     /** Joueurs en mode « choisir les coffres » (non sauvegardé). */
@@ -83,6 +86,8 @@ public final class Projet {
     private final Map<Item, Integer> besoins = new LinkedHashMap<>();
     /** Dernier comptage des coffres de la zone. */
     private final Map<Item, Integer> stock = new HashMap<>();
+    /** Dernier comptage des coffres choisis (gardé quand ils ne sont pas chargés). */
+    private final Map<Item, Integer> stockCoffres = new HashMap<>();
     private final Set<UUID> masques = new HashSet<>();
 
     private Projet() {}
@@ -92,7 +97,8 @@ public final class Projet {
     public boolean aUnLien() { return donnees.lien != null && !donnees.lien.isBlank(); }
     public boolean aUneZone() { return donnees.dimension != null && donnees.coinA != null && donnees.coinB != null; }
     public boolean aDesCoffres() { return donnees.coffres != null && !donnees.coffres.isEmpty(); }
-    public boolean estActif() { return !besoins.isEmpty() && aDesCoffres(); }
+    public boolean estActif() { return !besoins.isEmpty() && !donnees.termine; }
+    public boolean estTermine() { return donnees.termine; }
     public int nombreCoffres() { return donnees.coffres == null ? 0 : donnees.coffres.size(); }
     public boolean enSelection(UUID joueur) { return enSelection.contains(joueur); }
 
@@ -101,6 +107,7 @@ public final class Projet {
     }
 
     public void viderCoffres() {
+        stockCoffres.clear();
         donnees.coffres = new ArrayList<>();
         donnees.dimensionCoffres = null;
         stock.clear();
@@ -201,7 +208,9 @@ public final class Projet {
                 donnees.coinB == null ? "" : fmt(donnees.coinB),
                 besoins.size(), pourcentage(), masques.contains(joueur),
                 nombreCoffres(), enSelection.contains(joueur),
-                message == null ? "" : message, ouvrir);
+                message != null ? message
+                        : donnees.termine ? "Chantier terminé ✔ — charge une nouvelle liste pour recommencer." : "",
+                ouvrir);
     }
 
     public void arreter() {
@@ -397,6 +406,8 @@ public final class Projet {
      */
     private String appliquerCsv(String csv) {
         besoins.clear();
+        donnees.termine = false;
+        sauver();
         List<String> inconnus = new ArrayList<>();
         for (String ligne : csv.split("\\r?\\n")) {
             Item item = null;
@@ -463,7 +474,15 @@ public final class Projet {
      */
     public void recompter(MinecraftServer serveur) {
         // La zone n'est plus utilisée : seuls les coffres choisis à la main comptent.
-        if (aDesCoffres()) recompterCoffres(serveur); else stock.clear();
+        if (aDesCoffres()) recompterCoffres(serveur); else stockCoffres.clear();
+        stock.clear();
+        stock.putAll(stockCoffres);
+        // + ce que les joueurs connectés ont sur eux (shulkers comprises)
+        for (ServerPlayer joueur : serveur.getPlayerList().getPlayers()) {
+            Container inventaire = joueur.getInventory();
+            for (int i = 0; i < inventaire.getContainerSize(); i++) ajouter(stock, inventaire.getItem(i));
+        }
+        verifierFin(serveur);
         if (true) return;
         Identifier dimId = Identifier.tryParse(donnees.dimension);
         if (dimId == null) return;
@@ -512,8 +531,18 @@ public final class Projet {
                 ajouter(nouveau, conteneur.getItem(i));
             }
         }
-        stock.clear();
-        stock.putAll(nouveau);
+        stockCoffres.clear();
+        stockCoffres.putAll(nouveau);
+    }
+
+    /** À 100 % : message pour tout le monde, la liste disparaît (même si on sort ensuite les blocs). */
+    private void verifierFin(MinecraftServer serveur) {
+        if (donnees.termine || besoins.isEmpty() || pourcentage() < 100) return;
+        donnees.termine = true;
+        sauver();
+        serveur.getPlayerList().broadcastSystemMessage(Component.literal(
+                "§a✔ Chantier « " + donnees.titre + " » terminé : toutes les ressources sont réunies !"), false);
+        diffuser(serveur);
     }
 
     private static void ajouter(Map<Item, Integer> compte, ItemStack stack) {
