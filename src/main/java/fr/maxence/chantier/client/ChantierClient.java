@@ -78,7 +78,9 @@ public class ChantierClient {
         for (int i = 0; i < visibles; i++) largeur = Math.max(largeur, 18 + font.width(lignes.get(i).texte()));
         int hauteur = 12 + 5 + visibles * 17 + (caches > 0 ? 10 : 0);
 
-        int x = 4, y = 4;
+        // Centré verticalement sur le bord gauche, pour ne pas passer sous une minicarte en haut à gauche.
+        int x = 4;
+        int y = Math.max(4, (mc.getWindow().getGuiScaledHeight() - hauteur) / 2);
         g.fill(x - 3, y - 3, x + largeur + 3, y + hauteur + 2, FOND);
         g.text(font, entete, x, y, OR);
 
