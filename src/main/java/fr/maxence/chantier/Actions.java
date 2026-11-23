@@ -1,0 +1,60 @@
+package fr.maxence.chantier;
+
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+
+/** Côté serveur : exécute les clics de l'écran Chantier et renvoie les réglages à jour. */
+public final class Actions {
+    private Actions() {}
+
+    static void recevoir(ActionPayload action, IPayloadContext contexte) {
+        if (!(contexte.player() instanceof ServerPlayer joueur)) return;
+        MinecraftServer serveur = joueur.level().getServer();
+        Projet projet = Projet.get();
+        String valeur = action.valeur().trim();
+
+        switch (action.action()) {
+            case "config" -> repondre(joueur, null, false);
+            case "titre" -> {
+                if (valeur.isEmpty()) { repondre(joueur, "Écris un titre.", false); return; }
+                projet.definirTitre(valeur);
+                projet.diffuser(serveur);
+                repondre(joueur, "Titre enregistré.", false);
+            }
+            case "lien" -> {
+                if (valeur.isEmpty()) { repondre(joueur, "Colle le lien de la feuille Google Sheets.", false); return; }
+                projet.definirLien(valeur);
+                repondre(joueur, "Lecture de la feuille…", false);
+                projet.telechargerListe(serveur, message -> repondre(joueur, message, false));
+            }
+            case "actualiser" -> {
+                repondre(joueur, "Lecture de la feuille…", false);
+                projet.telechargerListe(serveur, message -> repondre(joueur, message, false));
+            }
+            case "coin1", "coin2" -> {
+                int numero = action.action().equals("coin1") ? 1 : 2;
+                String message = projet.definirCoin(numero, joueur.level().dimension(), joueur.blockPosition(), serveur);
+                repondre(joueur, message, false);
+            }
+            case "masquer", "afficher" -> {
+                projet.masquer(joueur.getUUID(), action.action().equals("masquer"));
+                projet.envoyerA(joueur);
+                repondre(joueur, action.action().equals("masquer") ? "Liste masquée." : "Liste affichée.", false);
+            }
+            case "arreter" -> {
+                projet.arreter();
+                projet.diffuser(serveur);
+                repondre(joueur, "Chantier effacé.", false);
+            }
+            default -> { }
+        }
+    }
+
+    /** Envoie les réglages à jour (et un message) au joueur, s'il a le mod. */
+    static void repondre(ServerPlayer joueur, String message, boolean ouvrir) {
+        if (!joueur.connection.hasChannel(ConfigPayload.TYPE)) return;
+        PacketDistributor.sendToPlayer(joueur, Projet.get().config(joueur.getUUID(), message, ouvrir));
+    }
+}

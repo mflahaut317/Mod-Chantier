@@ -1,7 +1,12 @@
 package fr.maxence.chantier.client;
 
 import fr.maxence.chantier.Chantier;
+import fr.maxence.chantier.ConfigRecue;
 import fr.maxence.chantier.EtatPayload;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.network.chat.Component;
+import net.neoforged.neoforge.client.event.ScreenEvent;
 import fr.maxence.chantier.EtatRecu;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -24,14 +29,18 @@ import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 @Mod(value = Chantier.MODID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid = Chantier.MODID, value = Dist.CLIENT)
 public class ChantierClient {
-    private static final int LIGNES_MAX = 10;
+    private static final int LIGNES_MAX = 6;
     private static final int FOND = 0x90000000;
     private static final int OR = 0xFFFFD24A;
     private static final int BLANC = 0xFFFFFFFF;
     private static final int VERT = 0xFF55FF55;
     private static final int GRIS = 0xFFAAAAAA;
 
-    public ChantierClient() {}
+    public ChantierClient() {
+        // Permet à /chantier (côté serveur) d'ouvrir l'écran.
+        ConfigRecue.ouvrirEcran = () -> Minecraft.getInstance().execute(
+                () -> Minecraft.getInstance().setScreen(new ChantierScreen()));
+    }
 
     @SubscribeEvent
     static void onCalques(RegisterGuiLayersEvent event) {
@@ -41,6 +50,17 @@ public class ChantierClient {
     @SubscribeEvent
     static void onDeconnexion(ClientPlayerNetworkEvent.LoggingOut event) {
         EtatRecu.vider();
+        ConfigRecue.vider();
+    }
+
+    /** Ajoute le bouton « Chantier » au milieu du bord gauche de l'inventaire. */
+    @SubscribeEvent
+    static void onEcranOuvert(ScreenEvent.Init.Post event) {
+        if (!(event.getScreen() instanceof InventoryScreen ecran)) return;
+        event.addListener(Button.builder(Component.literal("Chantier"),
+                        b -> Minecraft.getInstance().setScreen(new ChantierScreen()))
+                .bounds(4, ecran.height / 2 - 10, 56, 20)
+                .build());
     }
 
     private record Affichage(ItemStack stack, String texte, boolean fini) {}

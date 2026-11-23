@@ -25,6 +25,13 @@ public final class Commandes {
 
     static void enregistrer(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("chantier")
+                // "/chantier" seul : ouvre l'écran (si le joueur a le mod)
+                .executes(ctx -> {
+                    ServerPlayer joueur = ctx.getSource().getPlayer();
+                    if (joueur == null) return 0;
+                    Actions.repondre(joueur, null, true);
+                    return 1;
+                })
                 .then(Commands.literal("lien")
                         .then(Commands.argument("lien", StringArgumentType.greedyString())
                                 .executes(ctx -> {

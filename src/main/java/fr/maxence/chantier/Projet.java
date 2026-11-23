@@ -97,6 +97,47 @@ public final class Projet {
         sauver();
     }
 
+    /**
+     * Pose un coin de la zone (1 ou 2) à la position du joueur, depuis l'écran.
+     * @return message à afficher au joueur
+     */
+    public String definirCoin(int numero, ResourceKey<Level> dimension, BlockPos pos, MinecraftServer serveur) {
+        String dim = dimension.identifier().toString();
+        if (donnees.dimension != null && !donnees.dimension.equals(dim)) {
+            // Changement de dimension : l'autre coin n'a plus de sens.
+            donnees.coinA = null;
+            donnees.coinB = null;
+        }
+        donnees.dimension = dim;
+        int[] p = {pos.getX(), pos.getY(), pos.getZ()};
+        if (numero == 1) donnees.coinA = p; else donnees.coinB = p;
+
+        if (donnees.coinA != null && donnees.coinB != null
+                && (Math.abs(donnees.coinA[0] - donnees.coinB[0]) >= TAILLE_MAX
+                || Math.abs(donnees.coinA[2] - donnees.coinB[2]) >= TAILLE_MAX)) {
+            if (numero == 1) donnees.coinA = null; else donnees.coinB = null;
+            sauver();
+            return "Zone trop grande (max " + TAILLE_MAX + " blocs de côté). Rapproche-toi de l'autre coin.";
+        }
+        stock.clear();
+        sauver();
+        if (!aUneZone()) return "Coin " + numero + " posé. Va à l'autre bout de la salle pour poser l'autre coin.";
+        recompter(serveur);
+        diffuser(serveur);
+        return "Zone enregistrée. Avancement : " + pourcentage() + " %";
+    }
+
+    /** Réglages actuels, pour l'écran Chantier du joueur. */
+    public ConfigPayload config(UUID joueur, String message, boolean ouvrir) {
+        return new ConfigPayload(
+                donnees.titre == null ? "" : donnees.titre,
+                donnees.lien == null ? "" : donnees.lien,
+                donnees.coinA == null ? "" : fmt(donnees.coinA),
+                donnees.coinB == null ? "" : fmt(donnees.coinB),
+                besoins.size(), pourcentage(), masques.contains(joueur),
+                message == null ? "" : message, ouvrir);
+    }
+
     public void arreter() {
         donnees = new Sauvegarde();
         besoins.clear();
