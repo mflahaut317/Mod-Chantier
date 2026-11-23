@@ -42,7 +42,7 @@ final class Recettes {
 
     /** Matières qu'on récolte directement : on ne remonte pas plus loin. */
     private static final Pattern BASE = Pattern.compile(
-            ".*_(log|stem|ingot|seeds|sapling|wool|nugget|dye|ore|leaves|tulip)$"
+            ".*_(log|stem|ingot|seeds|sapling|wool|dye|ore|leaves|tulip)$"
             + "|^(sand|red_sand|gravel|cobblestone|cobbled_deepslate|blackstone|netherrack|dirt|clay_ball|clay"
             + "|diamond|emerald|coal|charcoal|redstone|lapis_lazuli|quartz|amethyst_shard|string|leather|wheat"
             + "|sugar_cane|bamboo|cactus|pumpkin|melon_slice|melon|carrot|potato|beetroot|nether_wart|soul_sand"
@@ -118,9 +118,10 @@ final class Recettes {
             ingredients.merge(p.getItem(), 1, Integer::sum);
         }
         if (ingredients.isEmpty()) return null;
-        // Ignore le « décompactage » (1 bloc -> 9 lingots), qui ferait tourner en rond.
+        // Ignore le « décompactage » vers une matière première (bloc de fer -> 9 lingots),
+        // mais garde lingot -> 9 pépites (les pépites se fabriquent à partir de lingots).
         int nbIngredients = ingredients.values().stream().mapToInt(Integer::intValue).sum();
-        if (nbIngredients == 1 && sortie.getCount() >= 9) return null;
+        if (nbIngredients == 1 && sortie.getCount() >= 9 && estBase(sortie.getItem())) return null;
         return new Option(ingredients, sortie.getCount());
     }
 
