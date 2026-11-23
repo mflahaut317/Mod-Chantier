@@ -15,8 +15,6 @@ jobs:
         run: |
           JAR=$(grep -l "net/minecraft/client/Minecraft.class" $(find build ~/.gradle -name '*.jar' 2>/dev/null) 2>/dev/null | head -1)
           echo "JAR=$JAR"
-          CP="$JAR"
-          javap -cp "$CP" net.minecraft.client.gui.GuiGraphicsExtractor | grep -E 'public .*(fill|text|String|item|Item)\(' | head -60
-          javap -cp "$CP" net.minecraft.client.Options | grep -iE 'hide|gui' | head
-          javap -cp "$CP" net.minecraft.client.Minecraft | grep -iE 'hide|gui|options' | head
-          javap -cp "$CP" net.minecraft.client.gui.Gui | grep -iE 'hidden|hide|visible' | head
+          CP="$JAR:$(find ~/.gradle build -name 'neoforge-*.jar' 2>/dev/null | tr '\n' ':')"
+          for c in net.minecraft.client.gui.screens.Screen net.minecraft.client.gui.components.EditBox net.minecraft.client.gui.components.Button net.minecraft.client.gui.components.Button\$Builder net.minecraft.client.KeyMapping net.minecraft.client.KeyMapping\$Category net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent net.neoforged.neoforge.client.event.ClientTickEvent\$Post net.neoforged.neoforge.network.registration.PayloadRegistrar com.mojang.blaze3d.platform.InputConstants net.minecraft.client.input.KeyEvent; do echo "=== $c"; javap -cp "$CP" "$c" 2>&1 | grep -E 'public|Error' | grep -vE 'equals|hashCode|toString' | head -45; done
+          jar tf build/moddev/artifacts/minecraft-patched-*.jar | grep -iE 'blaze3d/platform/InputConstants|client/input/' | head -20
