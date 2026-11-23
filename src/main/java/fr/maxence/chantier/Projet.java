@@ -546,12 +546,27 @@ public final class Projet {
                     e.getValue(),
                     stock.getOrDefault(e.getKey(), 0)));
         }
-        return new EtatPayload(donnees.titre, lignes);
+        List<EtatPayload.Ligne> aRecolter = new ArrayList<>();
+        for (Map.Entry<Item, Integer> e : recolte.entrySet()) {
+            aRecolter.add(new EtatPayload.Ligne(BuiltInRegistries.ITEM.getKey(e.getKey()).toString(), e.getValue(), 0));
+        }
+        return new EtatPayload(donnees.titre, lignes, aRecolter);
     }
 
-    private static final EtatPayload VIDE = new EtatPayload("", List.of());
+    private static final EtatPayload VIDE = new EtatPayload("", List.of(), List.of());
+
+    /** Dernier calcul des matières premières à récolter (voir Recettes). */
+    private Map<Item, Integer> recolte = new LinkedHashMap<>();
 
     public void diffuser(MinecraftServer serveur) {
+        if (estActif()) {
+            try {
+                recolte = Recettes.aRecolter(serveur, besoins, stock);
+            } catch (RuntimeException e) {
+                Chantier.LOGGER.error("[Chantier] Calcul des matières premières impossible", e);
+                recolte = new LinkedHashMap<>();
+            }
+        }
         EtatPayload plein = estActif() ? etat() : VIDE;
         for (ServerPlayer joueur : serveur.getPlayerList().getPlayers()) {
             envoyer(joueur, plein);

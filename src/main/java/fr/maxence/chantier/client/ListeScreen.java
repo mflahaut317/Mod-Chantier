@@ -24,6 +24,10 @@ public class ListeScreen extends Screen {
 
     private final Screen parent;
     private int defilement = 0;
+    /** false : liste du chantier ; true : matières premières à récolter. */
+    private boolean modeRecolte = false;
+    private Button boutonListe;
+    private Button boutonRecolte;
     private int haut;
     private int bas;
 
@@ -38,16 +42,39 @@ public class ListeScreen extends Screen {
 
     @Override
     protected void init() {
-        haut = 30;
+        haut = 40;
         bas = height - 36;
+        boutonListe = addRenderableWidget(Button.builder(Component.literal("Liste du chantier"), b -> changerMode(false))
+                .bounds(width / 2 - 125, 18, 120, 18).build());
+        boutonRecolte = addRenderableWidget(Button.builder(Component.literal("À récolter"), b -> changerMode(true))
+                .bounds(width / 2 + 5, 18, 120, 18).build());
+        boutonListe.active = modeRecolte;
+        boutonRecolte.active = !modeRecolte;
         addRenderableWidget(Button.builder(Component.literal("Retour"), b -> onClose())
                 .bounds(width / 2 - 50, height - 28, 100, 20).build());
+    }
+
+    private void changerMode(boolean recolte) {
+        modeRecolte = recolte;
+        defilement = 0;
+        boutonListe.active = modeRecolte;
+        boutonRecolte.active = !modeRecolte;
     }
 
     private List<Ligne> lignes() {
         List<Ligne> liste = new ArrayList<>();
         EtatPayload etat = EtatRecu.get();
         if (etat == null) return liste;
+        if (modeRecolte) {
+            for (EtatPayload.Ligne l : etat.recolte()) {
+                Identifier id = Identifier.tryParse(l.item());
+                if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) continue;
+                ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.getValue(id));
+                liste.add(new Ligne(stack, stack.getHoverName().getString(), 0, l.requis()));
+            }
+            liste.sort(Comparator.comparingInt(Ligne::requis).reversed());
+            return liste;
+        }
         for (EtatPayload.Ligne l : etat.lignes()) {
             Identifier id = Identifier.tryParse(l.item());
             if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) continue;
@@ -76,11 +103,15 @@ public class ListeScreen extends Screen {
         int gauche = (width - LARGEUR) / 2;
 
         if (liste.isEmpty()) {
-            String vide = "Aucun chantier en cours.";
+            String vide = modeRecolte ? "Rien à récolter : tout est dans les coffres !" : "Aucun chantier en cours.";
             g.text(font, vide, width / 2 - font.width(vide) / 2, height / 2, GRIS);
             return;
         }
 
+        if (modeRecolte) {
+            String entete = "Matières premières encore à récolter (" + liste.size() + ")";
+            g.text(font, entete, width / 2 - font.width(entete) / 2, 6, OR);
+        }
         long total = 0, fait = 0;
         int finis = 0;
         for (Ligne l : liste) {
@@ -92,7 +123,7 @@ public class ListeScreen extends Screen {
         EtatPayload etat = EtatRecu.get();
         String entete = (etat == null ? "Chantier" : etat.titre()) + " — " + pourcent + " % — "
                 + finis + "/" + liste.size() + " terminés";
-        g.text(font, entete, width / 2 - font.width(entete) / 2, 12, OR);
+        if (!modeRecolte) g.text(font, entete, width / 2 - font.width(entete) / 2, 6, OR);
 
         int max = Math.max(0, liste.size() - lignesVisibles());
         defilement = Math.min(defilement, max);
@@ -101,11 +132,14 @@ public class ListeScreen extends Screen {
             Ligne l = liste.get(i);
             g.fill(gauche - 4, y - 1, gauche + LARGEUR + 4, y + HAUTEUR_LIGNE - 1, (i % 2 == 0) ? 0x40000000 : 0x20000000);
             g.item(l.stack(), gauche, y);
-            g.text(font, l.nom(), gauche + 20, y + 4, l.fini() ? VERT : BLANC);
-            String q = l.fini()
+            g.text(font, l.nom(), gauche + 20, y + 4, (!modeRecolte && l.fini()) ? VERT : BLANC);
+            boolean vert = !modeRecolte && l.fini();
+            String q = modeRecolte
+                    ? ChantierClient.quantite(l.requis())
+                    : l.fini()
                     ? ChantierClient.quantite(l.requis()) + " ✔"
                     : ChantierClient.quantite(l.possede()) + " / " + ChantierClient.quantite(l.requis());
-            g.text(font, q, gauche + LARGEUR - font.width(q), y + 4, l.fini() ? VERT : GRIS);
+            g.text(font, q, gauche + LARGEUR - font.width(q), y + 4, vert ? VERT : (modeRecolte ? BLANC : GRIS));
             y += HAUTEUR_LIGNE;
         }
         if (max > 0) {
