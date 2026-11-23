@@ -62,7 +62,7 @@ public final class Actions {
                 projet.viderCoffres();
                 projet.recompter(serveur);
                 projet.diffuser(serveur);
-                repondre(joueur, "Sélection vidée. Le mod utilise la zone, si elle est définie.", false);
+                repondre(joueur, "Sélection vidée.", false);
             }
             case "arreter" -> {
                 projet.arreter();

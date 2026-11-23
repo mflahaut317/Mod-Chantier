@@ -61,12 +61,6 @@ public class ChantierScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Charger"),
                 b -> envoyer("lien", champLien.getValue())).bounds(x + 175, haut + 45, 65, 20).build());
 
-        // Zone des coffres
-        addRenderableWidget(Button.builder(Component.literal("Coin 1 ici"),
-                b -> envoyer("coin1", "")).bounds(x, haut + 76, 117, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Coin 2 ici"),
-                b -> envoyer("coin2", "")).bounds(x + 123, haut + 76, 117, 20).build());
-
         // Coffres choisis à la main
         boutonSelection = addRenderableWidget(Button.builder(Component.literal("Choisir les coffres"), b -> {
             if (enSelection()) {
@@ -75,15 +69,15 @@ public class ChantierScreen extends Screen {
                 envoyer("selection_on", "");
                 onClose(); // ferme l'écran pour pouvoir cliquer sur les coffres
             }
-        }).bounds(x, haut + 114, 150, 20).build());
+        }).bounds(x, haut + 76, 150, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Vider"),
-                b -> envoyer("vider_coffres", "")).bounds(x + 155, haut + 114, 85, 20).build());
+                b -> envoyer("vider_coffres", "")).bounds(x + 155, haut + 76, 85, 20).build());
 
         // Actions
         addRenderableWidget(Button.builder(Component.literal("Relire la feuille"),
-                b -> envoyer("actualiser", "")).bounds(gauche, haut + 152, 94, 20).build());
+                b -> envoyer("actualiser", "")).bounds(gauche, haut + 114, 94, 20).build());
         boutonMasquer = addRenderableWidget(Button.builder(Component.literal("Masquer la liste"),
-                b -> envoyer(estMasque() ? "afficher" : "masquer", "")).bounds(gauche + 98, haut + 152, 94, 20).build());
+                b -> envoyer(estMasque() ? "afficher" : "masquer", "")).bounds(gauche + 98, haut + 114, 94, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Arrêter"), b -> {
             if (confirmerArret) {
                 envoyer("arreter", "");
@@ -93,13 +87,13 @@ public class ChantierScreen extends Screen {
                 confirmerArret = true;
                 b.setMessage(Component.literal("Sûr ? Re-clique"));
             }
-        }).bounds(gauche + 196, haut + 152, 94, 20).build());
+        }).bounds(gauche + 196, haut + 114, 94, 20).build());
 
         addRenderableWidget(Button.builder(Component.literal("Voir la liste complète"),
                 b -> minecraft.gui.setScreen(new ListeScreen(this)))
-                .bounds(width / 2 - 145, haut + 212, 140, 20).build());
+                .bounds(width / 2 - 145, haut + 174, 140, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Fermer"), b -> onClose())
-                .bounds(width / 2 + 5, haut + 212, 100, 20).build());
+                .bounds(width / 2 + 5, haut + 174, 100, 20).build());
 
         dernierAffiche = null;
         remplirDepuisConfig();
@@ -142,28 +136,24 @@ public class ChantierScreen extends Screen {
         g.text(font, titre, width / 2 - font.width(titre) / 2, haut, OR);
         g.text(font, "Titre", gauche, haut + 25, BLANC);
         g.text(font, "Lien", gauche, haut + 51, BLANC);
-        g.text(font, "Zone", gauche, haut + 82, BLANC);
-        g.text(font, "Coffres", gauche, haut + 120, BLANC);
+        g.text(font, "Coffres", gauche, haut + 82, BLANC);
         if (c != null) {
             String infoCoffres = c.coffres() == 0
-                    ? "Aucun coffre choisi : le mod compte la zone."
-                    : c.coffres() + " emplacements choisis (la zone est ignorée).";
-            g.text(font, infoCoffres, gauche + 50, haut + 138, GRIS);
+                    ? "Aucun coffre choisi : clique sur « Choisir les coffres »."
+                    : c.coffres() + " emplacements de coffre choisis.";
+            g.text(font, infoCoffres, gauche + 50, haut + 100, GRIS);
         }
 
-        String coin1 = c == null || c.coin1().isEmpty() ? "—" : c.coin1();
-        String coin2 = c == null || c.coin2().isEmpty() ? "—" : c.coin2();
-        g.text(font, "Coin 1 : " + coin1 + "     Coin 2 : " + coin2, gauche + 50, haut + 102, GRIS);
 
         if (c == null) {
-            g.text(font, "En attente du serveur…", gauche, haut + 180, GRIS);
+            g.text(font, "En attente du serveur…", gauche, haut + 142, GRIS);
             return;
         }
         String etat = c.materiaux() + " matériaux · " + c.pourcent() + " %";
-        g.text(font, etat, gauche, haut + 180, c.pourcent() >= 100 ? VERT : OR);
+        g.text(font, etat, gauche, haut + 142, c.pourcent() >= 100 ? VERT : OR);
         if (!c.message().isEmpty()) {
             String msg = font.plainSubstrByWidth(c.message(), LARGEUR);
-            g.text(font, msg, gauche, haut + 194, BLANC);
+            g.text(font, msg, gauche, haut + 156, BLANC);
         }
     }
 

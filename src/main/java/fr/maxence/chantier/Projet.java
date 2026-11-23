@@ -92,7 +92,7 @@ public final class Projet {
     public boolean aUnLien() { return donnees.lien != null && !donnees.lien.isBlank(); }
     public boolean aUneZone() { return donnees.dimension != null && donnees.coinA != null && donnees.coinB != null; }
     public boolean aDesCoffres() { return donnees.coffres != null && !donnees.coffres.isEmpty(); }
-    public boolean estActif() { return !besoins.isEmpty() && (aDesCoffres() || aUneZone()); }
+    public boolean estActif() { return !besoins.isEmpty() && aDesCoffres(); }
     public int nombreCoffres() { return donnees.coffres == null ? 0 : donnees.coffres.size(); }
     public boolean enSelection(UUID joueur) { return enSelection.contains(joueur); }
 
@@ -462,8 +462,9 @@ public final class Projet {
      * Si une partie de la zone n'est pas chargée (personne à côté), on garde le dernier comptage.
      */
     public void recompter(MinecraftServer serveur) {
-        if (aDesCoffres()) { recompterCoffres(serveur); return; }
-        if (!aUneZone()) return;
+        // La zone n'est plus utilisée : seuls les coffres choisis à la main comptent.
+        if (aDesCoffres()) recompterCoffres(serveur); else stock.clear();
+        if (true) return;
         Identifier dimId = Identifier.tryParse(donnees.dimension);
         if (dimId == null) return;
         ServerLevel monde = serveur.getLevel(ResourceKey.create(Registries.DIMENSION, dimId));
