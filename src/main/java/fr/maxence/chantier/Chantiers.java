@@ -96,7 +96,8 @@ public final class Chantiers {
             Chantier.LOGGER.error("[Chantier] Lecture de chantier.json impossible", e);
         }
         for (Projet p : PAR_ID.values()) {
-            if (p.aUnLien()) p.telechargerListe(serveur, null);
+            if (p.aUnSchema()) p.restaurerSchema();
+            else if (p.aUnLien()) p.telechargerListe(serveur, null);
         }
     }
 

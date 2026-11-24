@@ -60,6 +60,10 @@ public final class Projet {
         List<int[]> coffres = new ArrayList<>();
         /** true quand toute la liste a été réunie : la liste est masquée jusqu'à une nouvelle liste. */
         boolean termine = false;
+        /** Nom du schéma si la liste vient d'un .litematic (sinon null : elle vient de la feuille). */
+        String schema = null;
+        /** Liste du schéma (ID -> quantité), gardée pour le redémarrage du serveur. */
+        Map<String, Integer> listeSchema = null;
     }
 
     /** Joueurs en mode « choisir les coffres » (non sauvegardé). */
@@ -190,7 +194,39 @@ public final class Projet {
 
     public void definirTitre(String titre) { donnees.titre = titre; sauver(); }
 
-    public void definirLien(String lien) { donnees.lien = lien.trim(); sauver(); }
+    public void definirLien(String lien) {
+        donnees.lien = lien.trim();
+        donnees.schema = null; // la feuille remplace le schéma
+        donnees.listeSchema = null;
+        sauver();
+    }
+
+    public boolean aUnSchema() { return donnees.schema != null && donnees.listeSchema != null; }
+
+    /** Remplace la liste par celle d'un schéma .litematic. */
+    public String importerSchema(String nom, Map<Item, Integer> liste) {
+        besoins.clear();
+        besoins.putAll(liste);
+        donnees.termine = false;
+        donnees.schema = nom;
+        donnees.listeSchema = new LinkedHashMap<>();
+        for (Map.Entry<Item, Integer> e : liste.entrySet()) {
+            donnees.listeSchema.put(BuiltInRegistries.ITEM.getKey(e.getKey()).toString(), e.getValue());
+        }
+        sauver();
+        return "Schéma « " + nom + " » importé : " + besoins.size() + " matériaux.";
+    }
+
+    /** Au redémarrage : remet la liste du schéma sauvegardé. */
+    public void restaurerSchema() {
+        besoins.clear();
+        for (Map.Entry<String, Integer> e : donnees.listeSchema.entrySet()) {
+            Identifier id = Identifier.tryParse(e.getKey());
+            if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
+                besoins.put(BuiltInRegistries.ITEM.getValue(id), e.getValue());
+            }
+        }
+    }
 
     /** Réglages actuels, pour l'écran Chantier du joueur. */
     public ConfigPayload config(UUID joueur, String message, boolean ouvrir) {
@@ -242,8 +278,13 @@ public final class Projet {
      * @param retour message à afficher à celui qui a lancé la commande (peut être null)
      */
     public void telechargerListe(MinecraftServer serveur, Consumer<String> retour) {
+        if (aUnSchema()) {
+            if (retour != null) retour.accept("La liste vient du schéma « " + donnees.schema
+                    + " » : réimporte-le pour la mettre à jour.");
+            return;
+        }
         if (!aUnLien()) {
-            if (retour != null) retour.accept("Aucun lien. Utilise /chantier lien <lien Google Sheets>");
+            if (retour != null) retour.accept("Aucun lien : colle le lien de ta feuille ou importe un schéma.");
             return;
         }
         HttpRequest requete;

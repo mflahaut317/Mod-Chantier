@@ -109,6 +109,28 @@ public final class Actions {
         }
     }
 
+    /** Liste lue dans un schéma .litematic par le joueur. */
+    static void importer(ImportPayload paquet, IPayloadContext contexte) {
+        if (!(contexte.player() instanceof ServerPlayer joueur)) return;
+        Projet projet = Chantiers.de(joueur.getUUID());
+        if (projet == null) { repondre(joueur, "Crée d'abord un chantier.", false); return; }
+        java.util.Map<net.minecraft.world.item.Item, Integer> liste = new java.util.LinkedHashMap<>();
+        for (EtatPayload.Ligne l : paquet.lignes()) {
+            net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.tryParse(l.item());
+            if (id == null || l.requis() <= 0
+                    || !net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(id)) continue;
+            liste.merge(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(id), l.requis(), Integer::sum);
+        }
+        if (liste.isEmpty()) { repondre(joueur, "Ce schéma ne contient aucun objet reconnu.", false); return; }
+        MinecraftServer serveur = joueur.level().getServer();
+        String nom = paquet.nom().length() > 60 ? paquet.nom().substring(0, 60) : paquet.nom();
+        String message = projet.importerSchema(nom, liste);
+        projet.forcerEnvoi();
+        projet.recompter(serveur);
+        projet.diffuser(serveur);
+        repondre(joueur, message, false);
+    }
+
     /** En mode sélection, un clic droit sur un conteneur l'ajoute ou le retire (sans l'ouvrir). */
     static void onClicDroit(PlayerInteractEvent.RightClickBlock event) {
         if (!(event.getEntity() instanceof ServerPlayer joueur)) return;
