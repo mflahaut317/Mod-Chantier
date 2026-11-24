@@ -571,6 +571,13 @@ public final class Projet {
                 "§a✔ Chantier « " + donnees.titre + " » terminé : toutes les ressources sont réunies !");
         for (ServerPlayer j : membresEnLigne(serveur)) j.sendSystemMessage(message);
         diffuser(serveur);
+        // Mod Souvenirs (facultatif) : le chantier terminé entre dans le journal du serveur
+        try {
+            Class.forName("fr.maxence.souvenirs.SouvenirsApi").getMethod("chantierTermine", String.class, String.class)
+                    .invoke(null, donnees.titre, nomsMembres());
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            // Souvenirs n'est pas installé
+        }
     }
 
     private static void ajouter(Map<Item, Integer> compte, ItemStack stack) {

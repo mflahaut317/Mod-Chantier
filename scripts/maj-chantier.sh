@@ -1,8 +1,7 @@
 #!/bin/bash
-# Met à jour le mod Chantier sur le serveur et dans le pack des joueurs, en une commande.
+# Met à jour les mods Chantier et Souvenirs sur le serveur et dans le pack des joueurs, en une commande :
 #
-#   ~/maj-chantier.sh          -> prend la dernière version publiée sur GitHub
-#   ~/maj-chantier.sh 1.3.0    -> prend cette version précise
+#   ~/maj-chantier.sh
 #
 # Étapes : pack packwiz (git push) -> arrêt propre du serveur -> nettoyage -> redémarrage.
 set -euo pipefail
@@ -11,36 +10,37 @@ PACK=~/survie-pack
 SERVEUR=~/survie
 DEPOT=mflahaut317/Mod-Chantier
 BASE="https://github.com/$DEPOT/releases/download/dernier"
+MODS=("chantier:Chantier" "souvenirs:Souvenirs")
 
 # 0. Mot de passe sudo demandé tout de suite (sinon le serveur pourrait rester arrêté si sudo expire)
 sudo -v || { echo "Mot de passe sudo refusé : rien n'a été fait."; exit 1; }
 
-# 1. Version à installer
-if [ $# -ge 1 ]; then
-    VERSION="$1"
-else
-    echo "Recherche de la dernière version…"
-    VERSION=$(curl -fsSL "https://api.github.com/repos/$DEPOT/releases/tags/dernier" \
-        | grep -oE 'chantier-[0-9]+\.[0-9]+\.[0-9]+\.jar' | sed -E 's/chantier-(.*)\.jar/\1/' \
-        | sort -uV | tail -1)
-fi
-if [ -z "${VERSION:-}" ]; then
-    echo "Impossible de trouver la version. Lance : ~/maj-chantier.sh 1.3.0"
-    exit 1
-fi
-JAR="chantier-$VERSION.jar"
-echo "Version : $VERSION"
+# 1. Dernières versions publiées
+echo "Recherche des dernières versions…"
+RELEASE=$(curl -fsSL "https://api.github.com/repos/$DEPOT/releases/tags/dernier")
 
 # 2. Pack des joueurs (packwiz + GitHub)
 cd "$PACK"
-packwiz remove chantier >/dev/null 2>&1 || true
-packwiz url add "Chantier" "$BASE/$JAR"
+RESUME=""
+for MOD in "${MODS[@]}"; do
+    ID="${MOD%%:*}"; NOM="${MOD##*:}"
+    VERSION=$(echo "$RELEASE" | grep -oE "\"$ID-[0-9]+\.[0-9]+\.[0-9]+\.jar\"" | tr -d '"' \
+        | sed -E "s/$ID-(.*)\.jar/\1/" | sort -uV | tail -1)
+    if [ -z "$VERSION" ]; then
+        echo "$NOM : pas encore publié, ignoré."
+        continue
+    fi
+    echo "$NOM : $VERSION"
+    packwiz remove "$ID" >/dev/null 2>&1 || true
+    packwiz url add "$NOM" "$BASE/$ID-$VERSION.jar"
+    RESUME="$RESUME $NOM $VERSION"
+done
 packwiz refresh
 git add -A
 if git diff --cached --quiet; then
     echo "Le pack était déjà à jour."
 else
-    git commit -m "Chantier $VERSION"
+    git commit -m "Mise à jour :$RESUME"
     git push
 fi
 
@@ -58,11 +58,11 @@ if screen -list | grep -q '\.mc\b'; then
     fi
 fi
 
-# 4. Nettoyage : le serveur retéléchargera la bonne version via packwiz au démarrage
-rm -f "$SERVEUR"/mods/chantier-*.jar
+# 4. Nettoyage : le serveur retéléchargera les bonnes versions via packwiz au démarrage
+for MOD in "${MODS[@]}"; do rm -f "$SERVEUR"/mods/"${MOD%%:*}"-*.jar; done
 
 # 5. Redémarrage
 sudo systemctl daemon-reload
 sudo systemctl restart minecraft
-echo "C'est fait : Chantier $VERSION. Le serveur redémarre (environ 1 minute)."
+echo "C'est fait :$RESUME. Le serveur redémarre (environ 1 minute)."
 echo "Côté joueurs : fermer Minecraft et relancer l'instance depuis Prism."

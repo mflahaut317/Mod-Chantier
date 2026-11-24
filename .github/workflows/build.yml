@@ -29,11 +29,16 @@ jobs:
 
       - name: Build with Gradle
         run: ./gradlew build
+
+      - name: Build Souvenirs
+        run: ./gradlew -p souvenirs build
       - name: Upload jar
         uses: actions/upload-artifact@v4
         with:
-          name: chantier-jar
-          path: build/libs/*.jar
+          name: jars
+          path: |
+            build/libs/*.jar
+            souvenirs/build/libs/*.jar
 
       - name: Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -41,7 +46,9 @@ jobs:
         with:
           tag_name: dernier
           name: Dernière version
-          body: Mod Chantier compilé automatiquement depuis le dernier commit de main.
+          body: Mods Chantier et Souvenirs compilés automatiquement depuis le dernier commit de main.
           make_latest: true
           overwrite_files: false
-          files: build/libs/*.jar
+          files: |
+            build/libs/*.jar
+            souvenirs/build/libs/*.jar
