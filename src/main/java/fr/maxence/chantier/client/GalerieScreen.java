@@ -178,9 +178,9 @@ public class GalerieScreen extends CadreScreen {
         }
 
         int ax = ficheGauche(), ay = ficheHaut(e), cote = coteApercu(e);
-        addRenderableWidget(Button.builder(Component.literal("↺"), b -> { rotation = (rotation + 3) % 4; })
+        addRenderableWidget(Button.builder(Component.literal("<"), b -> { rotation = (rotation + 3) % 4; })
                 .bounds(ax + 2, ay + cote - 22, 20, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("↻"), b -> { rotation = (rotation + 1) % 4; })
+        addRenderableWidget(Button.builder(Component.literal(">"), b -> { rotation = (rotation + 1) % 4; })
                 .bounds(ax + cote - 22, ay + cote - 22, 20, 20).build());
         int x = width / 2 - 188, y = py + ph - 28;
         addRenderableWidget(Button.builder(Component.literal("Utiliser pour mon chantier"), b -> {
@@ -199,7 +199,7 @@ public class GalerieScreen extends CadreScreen {
             confirmerSuppression = !confirmerSuppression;
             rebuildWidgets();
         }).bounds(x + 230, y, 70, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Galerie"), b -> { detailId = null; rebuildWidgets(); })
+        addRenderableWidget(Button.builder(Component.literal("Retour"), b -> { detailId = null; rebuildWidgets(); })
                 .bounds(x + 305, y, 70, 20).build());
     }
 
