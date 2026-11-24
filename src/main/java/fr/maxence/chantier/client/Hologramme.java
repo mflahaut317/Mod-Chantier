@@ -42,6 +42,8 @@ final class Hologramme {
 
     /** Mode « en visant » : l'hologramme suit le viseur jusqu'au clic droit. */
     static boolean suivre;
+    /** Dessiné par-dessus tout (visible à travers les blocs) : utile avec les shaders. */
+    static boolean parDessus;
 
     private static boolean restaure;
     private static int compteur;
@@ -203,12 +205,14 @@ final class Hologramme {
                     int rgb = attendu.defaultMapColor().col;
                     if (rgb == 0) rgb = 0xC8DCFF; // verre et blocs sans couleur : bleu très clair
                     double m = 0.1;
-                    Gizmos.cuboid(new AABB(x + m, y + m, z + m, x + 1 - m, y + 1 - m, z + 1 - m),
+                    net.minecraft.gizmos.GizmoProperties p = Gizmos.cuboid(new AABB(x + m, y + m, z + m, x + 1 - m, y + 1 - m, z + 1 - m),
                             GizmoStyle.strokeAndFill(0xC0000000 | rgb, 1.0f, 0x60000000 | rgb));
+                    if (parDessus) p.setAlwaysOnTop();
                 } else {
                     // Un autre bloc est à la place : en rouge, un peu plus gros pour qu'on le voie
-                    Gizmos.cuboid(new AABB(x - 0.01, y - 0.01, z - 0.01, x + 1.01, y + 1.01, z + 1.01),
+                    net.minecraft.gizmos.GizmoProperties p = Gizmos.cuboid(new AABB(x - 0.01, y - 0.01, z - 0.01, x + 1.01, y + 1.01, z + 1.01),
                             GizmoStyle.strokeAndFill(0xFFFF3030, 2.0f, 0x50FF3030));
+                    if (parDessus) p.setAlwaysOnTop();
                 }
                 dessines++;
             }

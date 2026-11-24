@@ -67,7 +67,9 @@ public class HoloScreen extends CadreScreen {
         bouton("Couche -", X, y, DEMI, () -> Hologramme.changerCouche(-1));
         bouton("Couche +", X + L - DEMI, y, DEMI, () -> Hologramme.changerCouche(1));
         y += 21;
-        bouton("Toutes les couches", X, y, L, Hologramme::toutesLesCouches);
+        bouton("Toutes", X, y, DEMI, Hologramme::toutesLesCouches);
+        bouton(Hologramme.parDessus ? "À travers : oui" : "À travers : non", X + L - DEMI, y, DEMI,
+                () -> Hologramme.parDessus = !Hologramme.parDessus);
         y += 24;
         bouton(Hologramme.visible ? "Masquer" : "Afficher", X, y, DEMI, Hologramme::basculerVisible);
         bouton("Retirer", X + L - DEMI, y, DEMI, Hologramme::retirer);
