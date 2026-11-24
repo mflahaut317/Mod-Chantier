@@ -39,6 +39,25 @@ public class GalerieScreen extends CadreScreen {
     private String detailId = null;    // null = catalogue
     private boolean confirmerSuppression = false;
     private String message = "";
+    private int rotation = 0;
+    /** Scènes 3D des fiches déjà construites (id + rotation). */
+    private final Map<String, Scene> scenes = new HashMap<>();
+
+    /** Bouton invisible qui couvre toute une carte : un clic n'importe où sur la carte ouvre la fiche. */
+    private static final class CarteBouton extends Button {
+        CarteBouton(Button.Builder b) { super(b); }
+
+        @Override
+        protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+            if (isHovered) {
+                int x = getX(), y = getY(), l = getWidth(), h = getHeight();
+                g.fill(x, y, x + l, y + 1, 0xFFFFFFFF);
+                g.fill(x, y + h - 1, x + l, y + h, 0xFFFFFFFF);
+                g.fill(x, y, x + 1, y + h, 0xFFFFFFFF);
+                g.fill(x + l - 1, y, x + l, y + h, 0xFFFFFFFF);
+            }
+        }
+    }
 
     public GalerieScreen(Screen parent) {
         super("Galerie commune", parent);
@@ -66,6 +85,8 @@ public class GalerieScreen extends CadreScreen {
     }
 
     private void ouvrir(String id) {
+        if (fr.maxence.chantier.VolumeRecu.get(id) == null) envoyer("galerie_volume", id);
+        rotation = 0;
         detailId = id;
         defilementMat = 0;
         confirmerSuppression = false;
@@ -140,8 +161,8 @@ public class GalerieScreen extends CadreScreen {
                 int k = i - premier;
                 int x = grilleGauche() + (k % c) * (CARTE_L + ECART);
                 int y = py + 12 + (k / c) * (CARTE_H + ECART);
-                addRenderableWidget(Button.builder(Component.literal("Voir la fiche"), b -> ouvrir(id))
-                        .bounds(x + CARTE_L - 84, y + CARTE_H - 22, 80, 18).build());
+                addRenderableWidget(Button.builder(Component.literal(liste.get(i).nom()), b -> ouvrir(id))
+                        .bounds(x, y, CARTE_L, CARTE_H).build(CarteBouton::new));
             }
             addRenderableWidget(Button.builder(Component.literal("Mes schémas"),
                             b -> minecraft.gui.setScreen(new SchemaScreen(this)))
@@ -154,6 +175,11 @@ public class GalerieScreen extends CadreScreen {
             return;
         }
 
+        int ax = ficheGauche(), ay = ficheHaut(e), cote = coteApercu(e);
+        addRenderableWidget(Button.builder(Component.literal("↺"), b -> { rotation = (rotation + 3) % 4; })
+                .bounds(ax + 2, ay + cote - 22, 20, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("↻"), b -> { rotation = (rotation + 1) % 4; })
+                .bounds(ax + cote - 22, ay + cote - 22, 20, 20).build());
         int x = width / 2 - 188, y = py + ph - 28;
         addRenderableWidget(Button.builder(Component.literal("Utiliser pour mon chantier"), b -> {
             envoyer("galerie_utiliser", e.id());
@@ -207,9 +233,9 @@ public class GalerieScreen extends CadreScreen {
         return true;
     }
 
+    /** Cartes et fiche dessinées sous les boutons (sinon elles les cacheraient). */
     @Override
-    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
-        super.extractRenderState(g, mouseX, mouseY, delta);
+    protected void dessinerFond(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         GaleriePayload.Entree e = detail();
         if (e == null) dessinerCatalogue(g, mouseX, mouseY);
         else dessinerFiche(g, e);
@@ -259,6 +285,16 @@ public class GalerieScreen extends CadreScreen {
         }
     }
 
+    /** Scène 3D texturée du projet (null tant que ses blocs ne sont pas arrivés, ou s'il n'en a pas). */
+    private Scene scene(GaleriePayload.Entree e) {
+        byte[] donnees = fr.maxence.chantier.VolumeRecu.get(e.id());
+        if (donnees == null || donnees.length == 0) return null;
+        return scenes.computeIfAbsent(e.id() + "#" + rotation, k -> {
+            Volume.Grille grille = Volume.decoder(donnees);
+            return grille == null ? null : Scene.depuis(grille, rotation);
+        });
+    }
+
     /** Fond « ciel » derrière les aperçus, comme une petite scène. */
     private static void ciel(GuiGraphicsExtractor g, int x, int y, int cote) {
         g.fill(x - 1, y - 1, x + cote + 1, y + cote + 1, OMBRE);
@@ -275,7 +311,14 @@ public class GalerieScreen extends CadreScreen {
 
         int haut = ficheHaut(e), cote = coteApercu(e);
         ciel(g, x, haut, cote);
-        if (!dessinerImage(g, e, x, haut, cote)) texte(g, font, "(pas d'aperçu)", x + 4, haut + 4, TEXTE);
+        Scene scene = scene(e);
+        if (scene != null) {
+            g.enableScissor(x, haut, x + cote, haut + cote);
+            scene.dessinerCentre(g, x, haut + 2, cote, cote - 22, 14);
+            g.disableScissor();
+        } else if (!dessinerImage(g, e, x, haut, cote)) {
+            texte(g, font, "(pas d'aperçu)", x + 4, haut + 4, TEXTE);
+        }
 
         // Tout ce qu'il faut, avec le nom de chaque objet
         int mx = x + cote + 12, mr = x + ficheLargeur();

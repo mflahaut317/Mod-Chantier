@@ -113,10 +113,11 @@ public class SchemaScreen extends CadreScreen {
         try {
             GaleriePayload.Entree e = preparer(fichier);
             if (e == null) { message = "Ce schéma ne contient aucun bloc."; return; }
+            byte[] volume = Volume.encoder(LecteurLitematic.lirePlan(fichier));
             minecraft.gui.setScreen(new FicheScreen(this, "Partager dans la galerie", e.nom(), "", "Partager",
                     (nom, description) -> {
                         ClientPacketDistributor.sendToServer(new fr.maxence.chantier.PartagePayload(new GaleriePayload.Entree(
-                                "", nom, "", description, e.largeur(), e.hauteur(), e.apercu(), e.lignes())));
+                                "", nom, "", description, e.largeur(), e.hauteur(), e.apercu(), e.lignes()), volume));
                         message = "Envoi de « " + nom + " » dans la galerie commune…";
                     }));
         } catch (IOException | RuntimeException ex) {

@@ -138,7 +138,7 @@ public class ChantierScreen extends CadreScreen {
         addRenderableWidget(Button.builder(Component.literal("Liste"),
                 b -> minecraft.gui.setScreen(new ListeScreen(this)))
                 .bounds(gauche, bas, 52, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Importer une liste"),
+        addRenderableWidget(Button.builder(Component.literal("Liste / Schéma"),
                 b -> minecraft.gui.setScreen(new SourceScreen(this)))
                 .bounds(gauche + 56, bas, 100, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Sur le terrain"),

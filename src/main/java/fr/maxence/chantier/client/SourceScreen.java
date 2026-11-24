@@ -20,7 +20,7 @@ public class SourceScreen extends CadreScreen {
     private ConfigPayload messageDepart;
 
     public SourceScreen(Screen parent) {
-        super("Importer une liste", parent);
+        super("Importer une liste ou un schéma", parent);
     }
 
     @Override

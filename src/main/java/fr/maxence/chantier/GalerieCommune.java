@@ -37,6 +37,7 @@ public final class GalerieCommune {
         int largeur;
         int hauteur;
         String apercu; // base64 du RGB compressé (Images.compresser)
+        String volume; // base64 des blocs compressés (aperçu 3D de la fiche), peut manquer
         Map<String, Integer> lignes = new LinkedHashMap<>();
     }
 
@@ -47,7 +48,7 @@ public final class GalerieCommune {
     private static final List<Projet> PROJETS = new ArrayList<>();
 
     /** Ajoute (ou remplace, même nom + même auteur) un projet partagé. @return message pour le joueur */
-    static String partager(ServerPlayer joueur, GaleriePayload.Entree e) {
+    static String partager(ServerPlayer joueur, GaleriePayload.Entree e, byte[] volume) {
         if (e.largeur() > 0 && Images.decompresser(e.apercu(), e.largeur() * e.hauteur() * 3) == null) {
             return "Aperçu invalide.";
         }
@@ -60,6 +61,7 @@ public final class GalerieCommune {
         p.largeur = e.largeur();
         p.hauteur = e.hauteur();
         p.apercu = Base64.getEncoder().encodeToString(e.apercu());
+        if (volume != null && volume.length > 0 && volume.length <= 40_000) p.volume = Base64.getEncoder().encodeToString(volume);
         for (EtatPayload.Ligne l : e.lignes()) {
             Identifier id = Identifier.tryParse(l.item());
             if (id != null && l.requis() > 0 && BuiltInRegistries.ITEM.containsKey(id)) p.lignes.merge(id.toString(), l.requis(), Integer::sum);
@@ -102,6 +104,16 @@ public final class GalerieCommune {
     private static String nettoyer(String texte, int max) {
         String t = texte == null ? "" : texte.replaceAll("[\\r\\n\\t]+", " ").strip();
         return t.length() > max ? t.substring(0, max) : t;
+    }
+
+    /** Blocs compressés d'un projet (tableau vide s'il n'en a pas). */
+    static byte[] volume(String id) {
+        for (Projet p : PROJETS) {
+            if (!p.id.equals(id)) continue;
+            if (p.volume == null) return new byte[0];
+            try { return Base64.getDecoder().decode(p.volume); } catch (IllegalArgumentException e) { return new byte[0]; }
+        }
+        return new byte[0];
     }
 
     static boolean supprimer(String id) {

@@ -23,6 +23,13 @@ public final class Actions {
         switch (action.action()) {
             case "config" -> { repondre(joueur, null, false); return; }
             case "galerie" -> { GalerieCommune.envoyerA(joueur); return; }
+            case "galerie_volume" -> {
+                if (joueur.connection.hasChannel(VolumePayload.TYPE)) {
+                    net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(joueur,
+                            new VolumePayload(valeur, GalerieCommune.volume(valeur)));
+                }
+                return;
+            }
             case "galerie_supprimer" -> {
                 GalerieCommune.supprimer(valeur);
                 GalerieCommune.envoyerA(joueur);
@@ -167,7 +174,7 @@ public final class Actions {
     /** Un joueur partage un schéma dans la galerie commune. */
     static void partager(PartagePayload paquet, IPayloadContext contexte) {
         if (!(contexte.player() instanceof ServerPlayer joueur)) return;
-        String message = GalerieCommune.partager(joueur, paquet.entree());
+        String message = GalerieCommune.partager(joueur, paquet.entree(), paquet.volume());
         joueur.sendSystemMessage(Component.literal(message));
         GalerieCommune.envoyerA(joueur);
     }

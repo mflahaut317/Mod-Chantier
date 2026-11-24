@@ -55,7 +55,11 @@ public abstract class CadreScreen extends Screen {
         if (sansPanneau) return;
         g.fill(0, 0, width, height, 0xA0000000);
         panneau(g, px, py, pw, ph);
+        dessinerFond(g, mouseX, mouseY);
     }
+
+    /** Contenu dessiné sous les boutons (cartes, images…). */
+    protected void dessinerFond(GuiGraphicsExtractor g, int mouseX, int mouseY) {}
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
