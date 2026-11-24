@@ -8,7 +8,7 @@ public final class Reseau {
     private Reseau() {}
 
     static void enregistrer(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("5").optional();
+        PayloadRegistrar registrar = event.registrar("6").optional();
         // Les gestionnaires côté joueur ne font que stocker les données : aucune classe client chargée côté serveur.
         registrar.playToClient(EtatPayload.TYPE, EtatPayload.CODEC,
                 (payload, contexte) -> EtatRecu.definir(payload));
@@ -16,5 +16,9 @@ public final class Reseau {
                 (payload, contexte) -> ConfigRecue.recevoir(payload));
         registrar.playToServer(ActionPayload.TYPE, ActionPayload.CODEC, Actions::recevoir);
         registrar.playToServer(ImportPayload.TYPE, ImportPayload.CODEC, Actions::importer);
+        registrar.playBidirectional(GaleriePayload.TYPE, GaleriePayload.CODEC, (payload, contexte) -> {
+            if (contexte.flow().isServerbound()) Actions.partager(payload, contexte);
+            else GalerieRecue.definir(payload);
+        });
     }
 }

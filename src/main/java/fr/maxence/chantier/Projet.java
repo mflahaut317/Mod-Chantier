@@ -137,6 +137,20 @@ public final class Projet {
     public int nombreCoffres() { return donnees.coffres == null ? 0 : donnees.coffres.size(); }
     public boolean enSelection(UUID joueur) { return enSelection.contains(joueur); }
 
+    /**
+     * En mode sélection : particules lumineuses sur les coffres choisis, visibles seulement par ce joueur.
+     * Appelé une fois par seconde.
+     */
+    public void montrerCoffres(ServerPlayer joueur) {
+        if (!enSelection.contains(joueur.getUUID()) || !(joueur.level() instanceof ServerLevel monde)) return;
+        if (!monde.dimension().identifier().toString().equals(donnees.dimensionCoffres)) return;
+        for (int[] c : donnees.coffres) {
+            if (joueur.distanceToSqr(c[0] + 0.5, c[1] + 0.5, c[2] + 0.5) > 48 * 48) continue;
+            monde.sendParticles(joueur, net.minecraft.core.particles.ParticleTypes.END_ROD, true, false,
+                    c[0] + 0.5, c[1] + 1.05, c[2] + 0.5, 4, 0.3, 0.05, 0.3, 0.0);
+        }
+    }
+
     public void basculerSelection(UUID joueur, boolean actif) {
         if (actif) enSelection.add(joueur); else enSelection.remove(joueur);
     }
@@ -568,10 +582,13 @@ public final class Projet {
         for (Map.Entry<Item, Integer> e : recolte.entrySet()) {
             aRecolter.add(new EtatPayload.Ligne(BuiltInRegistries.ITEM.getKey(e.getKey()).toString(), e.getValue(), 0));
         }
-        return new EtatPayload(donnees.titre, lignes, aRecolter);
+        List<Integer> positions = new ArrayList<>();
+        for (int[] c : donnees.coffres) { positions.add(c[0]); positions.add(c[1]); positions.add(c[2]); }
+        return new EtatPayload(donnees.titre, lignes, aRecolter,
+                donnees.dimensionCoffres == null ? "" : donnees.dimensionCoffres, positions);
     }
 
-    static final EtatPayload VIDE = new EtatPayload("", List.of(), List.of());
+    static final EtatPayload VIDE = new EtatPayload("", List.of(), List.of(), "", List.of());
 
     /** Dernier état envoyé (titre + lignes) : on ne renvoie rien tant que rien n'a changé. */
     private String derniereCle = null;
@@ -581,7 +598,7 @@ public final class Projet {
 
     /** Envoie l'état aux membres connectés, seulement s'il a changé depuis le dernier envoi. */
     public void diffuser(MinecraftServer serveur) {
-        String cle = estActif() ? donnees.titre + "|" + besoins + "|" + stock : "vide";
+        String cle = estActif() ? donnees.titre + "|" + besoins + "|" + stock + "|" + nombreCoffres() : "vide";
         if (cle.equals(derniereCle)) return;
         derniereCle = cle;
         if (estActif()) {

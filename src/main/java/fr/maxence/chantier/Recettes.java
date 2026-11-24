@@ -47,7 +47,7 @@ final class Recettes {
             + "|diamond|emerald|coal|charcoal|redstone|lapis_lazuli|quartz|amethyst_shard|string|leather|wheat"
             + "|sugar_cane|bamboo|cactus|pumpkin|melon_slice|melon|carrot|potato|beetroot|nether_wart|soul_sand"
             + "|bone_meal|bone|glowstone_dust|slime_ball|honeycomb|egg|feather|flint|snowball|ice|obsidian|end_stone"
-            + "|kelp|sweet_berries|apple|andesite|diorite|granite|tuff|calcite|deepslate|basalt|copper_ingot"
+            + "|kelp|sweet_berries|apple|stone|andesite|diorite|granite|tuff|calcite|deepslate|basalt|copper_ingot"
             + "|iron_ingot|gold_ingot|netherite_ingot|prismarine_shard|prismarine_crystals|ender_pearl|blaze_rod"
             + "|gunpowder|paper|book|sugar|honey_bottle|water_bucket|lava_bucket|milk_bucket)$");
 

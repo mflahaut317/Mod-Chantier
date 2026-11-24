@@ -22,6 +22,12 @@ public final class Actions {
         // Actions possibles sans chantier
         switch (action.action()) {
             case "config" -> { repondre(joueur, null, false); return; }
+            case "galerie" -> { GalerieCommune.envoyerA(joueur); return; }
+            case "galerie_supprimer" -> {
+                GalerieCommune.supprimer(valeur);
+                GalerieCommune.envoyerA(joueur);
+                return;
+            }
             case "creer" -> {
                 if (projet != null) { repondre(joueur, "Tu es déjà dans un chantier.", false); return; }
                 Projet nouveau = Chantiers.creer(joueur, valeur);
@@ -101,6 +107,11 @@ public final class Actions {
                 }
                 repondre(joueur, "Tu as quitté le chantier.", false);
             }
+            case "galerie_utiliser" -> {
+                var projetGalerie = GalerieCommune.liste(valeur);
+                if (projetGalerie == null) { repondre(joueur, "Ce projet n'est plus dans la galerie.", false); return; }
+                appliquerListe(joueur, projet, projetGalerie.getKey(), projetGalerie.getValue());
+            }
             case "arreter" -> {
                 Chantiers.supprimer(projet, serveur);
                 repondre(joueur, "Chantier supprimé.", false);
@@ -122,13 +133,26 @@ public final class Actions {
             liste.merge(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(id), l.requis(), Integer::sum);
         }
         if (liste.isEmpty()) { repondre(joueur, "Ce schéma ne contient aucun objet reconnu.", false); return; }
-        MinecraftServer serveur = joueur.level().getServer();
         String nom = paquet.nom().length() > 60 ? paquet.nom().substring(0, 60) : paquet.nom();
+        appliquerListe(joueur, projet, nom, liste);
+    }
+
+    private static void appliquerListe(ServerPlayer joueur, Projet projet, String nom,
+                                       java.util.Map<net.minecraft.world.item.Item, Integer> liste) {
+        MinecraftServer serveur = joueur.level().getServer();
         String message = projet.importerSchema(nom, liste);
         projet.forcerEnvoi();
         projet.recompter(serveur);
         projet.diffuser(serveur);
         repondre(joueur, message, false);
+    }
+
+    /** Un joueur partage un schéma dans la galerie commune. */
+    static void partager(GaleriePayload paquet, IPayloadContext contexte) {
+        if (!(contexte.player() instanceof ServerPlayer joueur) || paquet.entrees().isEmpty()) return;
+        String message = GalerieCommune.partager(joueur, paquet.entrees().get(0));
+        joueur.sendSystemMessage(Component.literal(message));
+        GalerieCommune.envoyerA(joueur);
     }
 
     /** En mode sélection, un clic droit sur un conteneur l'ajoute ou le retire (sans l'ouvrir). */

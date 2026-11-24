@@ -45,6 +45,7 @@ public class Chantier {
     }
 
     private static void onTick(ServerTickEvent.Post event) {
+        if (compteurTicks % 20 == 0) Chantiers.tickSeconde(event.getServer());
         if (++compteurTicks < INTERVALLE_TICKS) return;
         compteurTicks = 0;
         Chantiers.tick(event.getServer());

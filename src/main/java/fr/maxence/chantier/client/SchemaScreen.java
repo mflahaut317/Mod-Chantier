@@ -1,6 +1,9 @@
 package fr.maxence.chantier.client;
 
 import fr.maxence.chantier.EtatPayload;
+import fr.maxence.chantier.GaleriePayload;
+import java.net.URI;
+import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import fr.maxence.chantier.ImportPayload;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -69,11 +72,19 @@ public class SchemaScreen extends Screen {
             Path f = fichiers.get(i);
             String nom = dossier.relativize(f).toString();
             addRenderableWidget(Button.builder(Component.literal(nom), b -> importer(f))
-                    .bounds(gauche, y, LARGEUR, 20).build());
+                    .bounds(gauche, y, LARGEUR - 70, 20).build());
+            addRenderableWidget(Button.builder(Component.literal("Partager"), b -> { message = partager(f); })
+                    .bounds(gauche + LARGEUR - 66, y, 66, 20).build());
             y += HAUTEUR_LIGNE;
         }
+        addRenderableWidget(Button.builder(Component.literal("Galerie commune"),
+                        b -> minecraft.gui.setScreen(new GalerieScreen(this)))
+                .bounds(width / 2 - 155, height - 28, 100, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Retour"), b -> onClose())
                 .bounds(width / 2 - 50, height - 28, 100, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Trouver des schémas"),
+                        ConfirmLinkScreen.confirmLink(this, URI.create("https://www.minecraft-schematics.com/")))
+                .bounds(width / 2 + 55, height - 28, 110, 20).build());
     }
 
     private void importer(Path fichier) {
@@ -84,7 +95,7 @@ public class SchemaScreen extends Screen {
     /** Lit le schéma et envoie sa liste au serveur. @return null si tout va bien, sinon le message d'erreur */
     static String envoyer(Path fichier) {
         try {
-            Map<Item, Integer> blocs = LecteurLitematic.lire(fichier);
+            Map<Item, Integer> blocs = LecteurLitematic.lire(fichier).blocs();
             if (blocs.isEmpty()) return "Ce schéma ne contient aucun bloc.";
             List<EtatPayload.Ligne> lignes = new ArrayList<>();
             for (Map.Entry<Item, Integer> e : blocs.entrySet()) {
@@ -93,6 +104,31 @@ public class SchemaScreen extends Screen {
             String nom = fichier.getFileName().toString().replaceAll("(?i)\\.(litematic|schem|nbt)$", "");
             ClientPacketDistributor.sendToServer(new ImportPayload(nom, lignes));
             return null;
+        } catch (IOException | RuntimeException e) {
+            return "Lecture impossible : " + e.getMessage();
+        }
+    }
+
+    /** Partage le schéma dans la galerie commune du serveur (liste + vue du dessus). */
+    static String partager(Path fichier) {
+        try {
+            LecteurLitematic.Lecture lecture = LecteurLitematic.lire(fichier);
+            if (lecture.blocs().isEmpty()) return "Ce schéma ne contient aucun bloc.";
+            List<EtatPayload.Ligne> lignes = new ArrayList<>();
+            for (Map.Entry<Item, Integer> e : lecture.blocs().entrySet()) {
+                lignes.add(new EtatPayload.Ligne(BuiltInRegistries.ITEM.getKey(e.getKey()).toString(), e.getValue(), 0));
+            }
+            byte[] rgb = new byte[lecture.pixels().length * 3];
+            for (int i = 0; i < lecture.pixels().length; i++) {
+                int c = lecture.pixels()[i];
+                rgb[i * 3] = (byte) (c >> 16);
+                rgb[i * 3 + 1] = (byte) (c >> 8);
+                rgb[i * 3 + 2] = (byte) c;
+            }
+            String nom = fichier.getFileName().toString().replaceAll("(?i)\\.(litematic|schem|nbt)$", "");
+            ClientPacketDistributor.sendToServer(new GaleriePayload(List.of(new GaleriePayload.Entree(
+                    "", nom, "", lecture.largeur(), lecture.hauteur(), rgb, lignes))));
+            return "Envoi de « " + nom + " » dans la galerie commune…";
         } catch (IOException | RuntimeException e) {
             return "Lecture impossible : " + e.getMessage();
         }

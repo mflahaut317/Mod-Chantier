@@ -94,7 +94,9 @@ public class ChantierClient {
         // Ligne compacte : icône + mini-barre + %, le nom complet est dans « Voir la liste complète ».
         final int barreLigne = 48;
         int largeur = Math.max(font.width(entete), 19 + barreLigne + 4 + font.width("100 %"));
-        int hauteur = 12 + 5 + visibles * 17 + (caches > 0 ? 10 : 0);
+        String fleche = flecheCoffre(mc, etat);
+        if (fleche != null) largeur = Math.max(largeur, font.width(fleche));
+        int hauteur = 12 + 5 + visibles * 17 + (caches > 0 ? 10 : 0) + (fleche != null ? 11 : 0);
 
         // Centré verticalement sur le bord gauche, pour ne pas passer sous une minicarte en haut à gauche.
         int x = 4;
@@ -108,6 +110,10 @@ public class ChantierClient {
         g.fill(x, barreY, x + largeur * pourcent / 100, barreY + 3, pourcent >= 100 ? VERT : OR);
 
         int ly = barreY + 6;
+        if (fleche != null) {
+            g.text(font, fleche, x, ly, GRIS);
+            ly += 11;
+        }
         for (int i = 0; i < visibles; i++) {
             Affichage a = lignes.get(i);
             int couleur = a.fini() ? VERT : OR;
@@ -121,6 +127,31 @@ public class ChantierClient {
         if (caches > 0) {
             g.text(font, "+ " + caches + " autres", x, ly, GRIS);
         }
+    }
+
+    private static final String[] FLECHES = {"↑", "↗", "→", "↘", "↓", "↙", "←", "↖"};
+
+    /**
+     * « Coffre ↗ 23 m » vers le coffre choisi le plus proche, ou null (pas de coffre, autre dimension, ou à moins de 6 m).
+     */
+    static String flecheCoffre(Minecraft mc, EtatPayload etat) {
+        if (mc.player == null || mc.level == null || etat.coffres().size() < 3) return null;
+        if (!mc.level.dimension().identifier().toString().equals(etat.dimension())) return null;
+        double px = mc.player.getX(), pz = mc.player.getZ();
+        double meilleur = Double.MAX_VALUE, dx = 0, dz = 0;
+        List<Integer> c = etat.coffres();
+        for (int i = 0; i + 2 < c.size(); i += 3) {
+            double ex = c.get(i) + 0.5 - px, ez = c.get(i + 2) + 0.5 - pz;
+            double d = ex * ex + ez * ez;
+            if (d < meilleur) { meilleur = d; dx = ex; dz = ez; }
+        }
+        double distance = Math.sqrt(meilleur);
+        if (distance < 6) return null;
+        // Angle du coffre dans le repère Minecraft (0° = sud, 90° = ouest), relatif à la direction du regard
+        double angle = Math.toDegrees(Math.atan2(-dx, dz)) - mc.player.getYRot();
+        angle = ((angle % 360) + 360) % 360;
+        String f = FLECHES[(int) Math.round(angle / 45.0) % 8];
+        return "Coffre " + f + " " + Math.round(distance) + " m";
     }
 
     /** 150 -> "2 st + 22", 64 -> "1 st", 40 -> "40". */

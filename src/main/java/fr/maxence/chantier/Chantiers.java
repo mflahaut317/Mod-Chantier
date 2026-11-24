@@ -64,6 +64,14 @@ public final class Chantiers {
         }
     }
 
+    /** Chaque seconde : particules sur les coffres pour les joueurs en mode sélection. */
+    public static void tickSeconde(MinecraftServer serveur) {
+        for (ServerPlayer j : serveur.getPlayerList().getPlayers()) {
+            Projet p = de(j.getUUID());
+            if (p != null) p.montrerCoffres(j);
+        }
+    }
+
     public static void onConnexion(ServerPlayer joueur) {
         Projet p = de(joueur.getUUID());
         if (p == null) {
@@ -77,6 +85,7 @@ public final class Chantiers {
     /** Au démarrage : relit le fichier et retélécharge la feuille de chaque chantier. */
     public static void charger(MinecraftServer serveur) {
         PAR_ID.clear();
+        GalerieCommune.charger();
         Path f = fichier();
         if (!Files.exists(f)) return;
         try {

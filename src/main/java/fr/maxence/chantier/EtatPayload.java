@@ -9,7 +9,8 @@ import net.minecraft.resources.Identifier;
 
 /** Paquet serveur -> client : titre du chantier et liste des matériaux (requis / en stock). */
 /** lignes : la liste du chantier ; recolte : matières premières à récolter (requis = quantité, possede = 0). */
-public record EtatPayload(String titre, List<Ligne> lignes, List<Ligne> recolte) implements CustomPacketPayload {
+public record EtatPayload(String titre, List<Ligne> lignes, List<Ligne> recolte,
+                          String dimension, List<Integer> coffres) implements CustomPacketPayload {
 
     public record Ligne(String item, int requis, int possede) {
         public static final StreamCodec<ByteBuf, Ligne> CODEC = StreamCodec.composite(
@@ -26,6 +27,8 @@ public record EtatPayload(String titre, List<Ligne> lignes, List<Ligne> recolte)
             ByteBufCodecs.STRING_UTF8, EtatPayload::titre,
             Ligne.CODEC.apply(ByteBufCodecs.list()), EtatPayload::lignes,
             Ligne.CODEC.apply(ByteBufCodecs.list()), EtatPayload::recolte,
+            ByteBufCodecs.STRING_UTF8, EtatPayload::dimension,
+            ByteBufCodecs.VAR_INT.apply(ByteBufCodecs.list()), EtatPayload::coffres,
             EtatPayload::new);
 
     @Override
