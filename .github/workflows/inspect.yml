@@ -16,9 +16,11 @@ jobs:
           JAR=$(grep -l "net/minecraft/client/Minecraft.class" $(find build ~/.gradle -name '*.jar' 2>/dev/null) 2>/dev/null | head -1)
           echo "JAR=$JAR"
           CP="$JAR:$(find ~/.gradle build -name 'neoforge-*.jar' 2>/dev/null | tr '\n' ':')"
-          echo "=== IC"; javap -cp "$CP" com.mojang.blaze3d.platform.InputConstants 2>&1 | grep -E 'isKeyDown|public static' | head -12
-          echo "=== Window"; javap -cp "$CP" com.mojang.blaze3d.platform.Window 2>&1 | grep -iE 'handle|long ' | head
-          echo "=== Options keys"; javap -cp "$CP" net.minecraft.client.Options 2>&1 | grep -E 'KeyMapping key(Up|Down|Left|Right|Jump|Shift|Sprint)' | head
+          echo "=== IC2"; javap -cp "$CP" com.mojang.blaze3d.platform.InputConstants > /tmp/ic.txt 2>&1; grep -E 'isKeyDown|getKey\(' /tmp/ic.txt
+          echo "=== KM match"; javap -cp "$CP" net.minecraft.client.KeyMapping > /tmp/km.txt 2>&1; grep -iE 'match|setDown|isDown' /tmp/km.txt
+          echo "=== KeyEvent"; javap -cp "$CP" net.minecraft.client.input.KeyEvent 2>&1 | head -12
+          echo "=== Screen keys"; javap -cp "$CP" net.minecraft.client.gui.screens.Screen > /tmp/sc.txt 2>&1; grep -iE 'key' /tmp/sc.txt
+          javap -cp "$CP" net.minecraft.client.gui.components.events.ContainerEventHandler 2>&1 | grep -iE 'key' 
           OP=$(find ~/.gradle -name 'open-parties-and-claims*.jar' | grep -v sources | head -1); echo "OP=$OP"
           jar tf "$OP" | grep -E 'api/.*(OpenPACServerAPI|IServerPartyAPI|IPartyMemberAPI|IPartyManagerAPI|PartyManager).*class' | head -20
           for C in xaero.pac.common.server.api.OpenPACServerAPI xaero.pac.common.server.parties.party.api.IServerPartyAPI xaero.pac.common.parties.party.member.api.IPartyMemberAPI xaero.pac.common.server.parties.party.api.IPartyManagerAPI; do echo "== $C"; javap -cp "$OP:$CP" $C 2>&1 | head -40; done
