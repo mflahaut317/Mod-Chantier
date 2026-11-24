@@ -50,7 +50,7 @@ public class ChantierClient {
     // Touches (modifiables dans Options > Commandes > Chantier)
     static final net.minecraft.client.KeyMapping.Category CATEGORIE =
             new net.minecraft.client.KeyMapping.Category(Identifier.fromNamespaceAndPath(Chantier.MODID, "chantier"));
-    static final net.minecraft.client.KeyMapping OUVRIR = new net.minecraft.client.KeyMapping("key.chantier.ouvrir", 85, CATEGORIE);       // U (K = shaders d'Iris)
+    static final net.minecraft.client.KeyMapping OUVRIR = new net.minecraft.client.KeyMapping("key.chantier.ouvrir", 72, CATEGORIE);       // H (K = shaders, U = waypoints Xaero)
     static final net.minecraft.client.KeyMapping COUCHE_HAUT = new net.minecraft.client.KeyMapping("key.chantier.couche_haut", 266, CATEGORIE); // Page haut
     static final net.minecraft.client.KeyMapping COUCHE_BAS = new net.minecraft.client.KeyMapping("key.chantier.couche_bas", 267, CATEGORIE);   // Page bas
 

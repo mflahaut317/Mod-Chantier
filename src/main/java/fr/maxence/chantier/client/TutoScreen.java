@@ -31,7 +31,7 @@ public class TutoScreen extends CadreScreen {
                         Ligne.de(Items.PLAYER_HEAD, "Seul ou en groupe : chaque groupe a sa propre liste."),
                         Ligne.de(Items.SPYGLASS, "La liste reste affichée à gauche pendant que tu joues."))),
                 new Etape("Créer un chantier", Items.NAME_TAG, List.of(
-                        Ligne.de(Items.NAME_TAG, "Inventaire, bouton « Chantier », ou la touche U."),
+                        Ligne.de(Items.NAME_TAG, "Inventaire, bouton « Chantier », ou la touche H."),
                         Ligne.de(Items.WRITABLE_BOOK, "Donne-lui un nom, puis colle le lien Google Sheets."),
                         Ligne.de(Items.PLAYER_HEAD, "Ajoute tes amis connectés avec leur pseudo."),
                         Ligne.de(Items.BARRIER, "Quitter te retire, Supprimer efface le chantier."))),
