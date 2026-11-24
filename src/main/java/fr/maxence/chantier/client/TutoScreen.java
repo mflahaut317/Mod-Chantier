@@ -5,6 +5,8 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -96,17 +98,13 @@ public class TutoScreen extends CadreScreen {
         super.extractRenderState(g, mouseX, mouseY, delta);
         Etape e = liste.get(etape);
 
-        // Illustration : un gros objet sur fond de ciel
-        int ix = px + 12, iy = py + 12, il = Math.min(130, pw / 3), ih = ph - 24;
+        // Illustration : une petite scène sur fond de ciel
+        int ix = px + 12, iy = py + 12, il = Math.min(150, pw / 3), ih = ph - 24;
         g.fill(ix - 1, iy - 1, ix + il + 1, iy + ih + 1, OMBRE);
         g.fillGradient(ix, iy, ix + il, iy + ih, 0xFF6F9AD0, 0xFFA9C6EA);
-        g.fill(ix, iy + ih - 16, ix + il, iy + ih, 0xFF5D9B3A);       // herbe
-        g.fill(ix, iy + ih - 10, ix + il, iy + ih, 0xFF8B5E3C);       // terre
-        g.pose().pushMatrix();
-        g.pose().translate(ix + il / 2f - 32, iy + ih / 2f - 40);
-        g.pose().scale(4f, 4f);
-        g.item(new ItemStack(e.image()), 0, 0);
-        g.pose().popMatrix();
+        g.enableScissor(ix, iy, ix + il, iy + ih);
+        illustrer(g, etape, ix, iy, il, ih);
+        g.disableScissor();
 
         // Explications
         int tx = ix + il + 12, tl = px + pw - 12 - tx - 26;
@@ -130,6 +128,141 @@ public class TutoScreen extends CadreScreen {
                 for (String m : morceaux) { texte(g, font, m, tx + 26, ty, TEXTE); ty += 10; }
             }
             y += 30;
+        }
+    }
+
+    // ---------- Illustrations ----------
+
+    private void illustrer(GuiGraphicsExtractor g, int n, int x, int y, int l, int h) {
+        switch (n) {
+            case 0 -> maison().dessinerCentre(g, x, y, l, h, 11);
+            case 1 -> maquetteCreation(g, x, y, l, h);
+            case 2 -> coffres().dessinerCentre(g, x, y, l, h, 12);
+            case 3 -> maquetteListe(g, x, y, l, h);
+            case 4 -> maquetteGalerie(g, x, y, l, h);
+            case 5 -> mur().dessinerCentre(g, x, y, l, h, 12);
+            case 6 -> couches().dessinerCentre(g, x, y, l, h, 12);
+            default -> maquetteTouches(g, x, y, l, h);
+        }
+    }
+
+    /** Petite maison en cours : murs posés, toit encore en fantôme. */
+    private static Scene maison() {
+        Scene s = new Scene().ilot(5, 5);
+        for (int yy = 0; yy < 2; yy++) for (int xx = 1; xx <= 3; xx++) for (int zz = 1; zz <= 3; zz++) {
+            boolean bord = xx == 1 || xx == 3 || zz == 1 || zz == 3;
+            if (!bord) continue;
+            boolean coin = (xx == 1 || xx == 3) && (zz == 1 || zz == 3);
+            if (!coin && xx == 2 && zz == 3 && yy < 2) continue; // la porte
+            if (coin) s.bloc(xx, yy, zz, Scene.BUCHE_DESSUS, Scene.BUCHE); else s.bloc(xx, yy, zz, Scene.PLANCHES);
+        }
+        for (int xx = 1; xx <= 3; xx++) for (int zz = 1; zz <= 3; zz++) s.fantome(xx, 2, zz, Scene.PLANCHES);
+        return s;
+    }
+
+    /** Trois coffres, deux choisis (contour jaune). */
+    private static Scene coffres() {
+        Scene s = new Scene().ilot(5, 3);
+        s.uni(1, 0, 1, 0xFFA0702C, 0xFFFFE070);
+        s.uni(2, 0, 1, 0xFFA0702C, 0xFFFFE070);
+        s.uni(3, 0, 1, 0xFFA0702C, 0xFF3A2A10);
+        s.bloc(4, 0, 2, Scene.PLANCHES);
+        return s;
+    }
+
+    /** Un mur : blocs posés, fantômes à poser, un bloc faux en rouge. */
+    private static Scene mur() {
+        Scene s = new Scene().ilot(5, 3);
+        for (int yy = 0; yy < 3; yy++) {
+            s.bloc(0, yy, 1, Scene.BUCHE_DESSUS, Scene.BUCHE);
+            s.bloc(4, yy, 1, Scene.BUCHE_DESSUS, Scene.BUCHE);
+        }
+        s.bloc(1, 0, 1, Scene.BRIQUES);
+        s.faux(2, 0, 1, Scene.PAVES);
+        s.bloc(3, 0, 1, Scene.BRIQUES);
+        s.bloc(1, 1, 1, Scene.BRIQUES);
+        s.fantome(2, 1, 1, Scene.BRIQUES);
+        s.fantome(3, 1, 1, Scene.BRIQUES);
+        for (int xx = 1; xx <= 3; xx++) s.fantome(xx, 2, 1, Scene.BRIQUES);
+        return s;
+    }
+
+    /** Une tour : la couche du bas posée, la couche en cours en fantôme, le reste à peine visible. */
+    private static Scene couches() {
+        Scene s = new Scene().ilot(4, 4);
+        for (int xx = 0; xx < 3; xx++) for (int zz = 0; zz < 3; zz++) {
+            s.bloc(xx, 0, zz, Scene.BRIQUES);
+            s.fantome(xx, 1, zz, Scene.BRIQUES);
+            s.vide(xx, 2, zz, 0x50FFFFFF);
+            s.vide(xx, 3, zz, 0x50FFFFFF);
+        }
+        return s;
+    }
+
+    private static final Identifier BOUTON = Identifier.withDefaultNamespace("widget/button");
+
+    private void faux_bouton(GuiGraphicsExtractor g, String texte, int x, int y, int l) {
+        g.blitSprite(RenderPipelines.GUI_TEXTURED, BOUTON, x, y, l, 20);
+        g.text(font, texte, x + l / 2 - font.width(texte) / 2, y + 6, 0xFFFFFFFF);
+    }
+
+    /** Mini écran « Mon chantier ». */
+    private void maquetteCreation(GuiGraphicsExtractor g, int x, int y, int l, int h) {
+        int px0 = x + 8, py0 = y + h / 2 - 44, lp = l - 16;
+        panneau(g, px0, py0, lp, 88);
+        texte(g, font, "Mon chantier", px0 + 8, py0 + 8, TEXTE);
+        icone(g, new ItemStack(Items.NAME_TAG), px0 + 8, py0 + 22);
+        creux(g, px0 + 32, py0 + 24, lp - 40, 16, 0xFF000000);
+        g.text(font, "Ma maison", px0 + 36, py0 + 28, 0xFFE0E0E0);
+        icone(g, new ItemStack(Items.PLAYER_HEAD), px0 + 8, py0 + 46);
+        texte(g, font, "Alex, Steve", px0 + 34, py0 + 52, DOUX);
+        faux_bouton(g, "Créer", px0 + lp - 58, py0 + 66, 50);
+    }
+
+    /** Mini liste affichée à gauche de l'écran en jeu. */
+    private void maquetteListe(GuiGraphicsExtractor g, int x, int y, int l, int h) {
+        int bx = x + 10, by = y + h / 2 - 50, bl = l - 20;
+        g.fill(bx, by, bx + bl, by + 100, 0xC0000000);
+        g.text(font, "Ma maison — 62 %", bx + 4, by + 4, 0xFFFFD24A);
+        g.text(font, "Coffre ↗ 12 m", bx + 4, by + 15, 0xFFAAAAAA);
+        Item[] objets = {Items.OAK_PLANKS, Items.COBBLESTONE, Items.OAK_LOG, Items.GLASS};
+        int[] pourcent = {100, 80, 45, 10};
+        for (int i = 0; i < objets.length; i++) {
+            int ly = by + 28 + i * 18;
+            g.item(new ItemStack(objets[i]), bx + 4, ly);
+            int barre = bl - 60;
+            g.fill(bx + 24, ly + 6, bx + 24 + barre, ly + 10, 0xFF333333);
+            g.fill(bx + 24, ly + 6, bx + 24 + barre * pourcent[i] / 100, ly + 10, pourcent[i] >= 100 ? 0xFF55FF55 : 0xFFFFD24A);
+            String t = pourcent[i] + " %";
+            g.text(font, t, bx + bl - 4 - font.width(t), ly + 4, pourcent[i] >= 100 ? 0xFF55FF55 : 0xFFFFFFFF);
+        }
+    }
+
+    /** Deux cartes de la galerie avec leur aperçu. */
+    private void maquetteGalerie(GuiGraphicsExtractor g, int x, int y, int l, int h) {
+        String[] noms = {"Maison", "Tour"};
+        String[] auteurs = {"par Steve", "par Alex"};
+        for (int i = 0; i < 2; i++) {
+            int cx = x + 8, cy = y + h / 2 - 46 + i * 48, cl = l - 16;
+            creux(g, cx, cy, cl, 44, 0xFFD4D4D4);
+            g.fill(cx + 3, cy + 3, cx + 41, cy + 41, OMBRE);
+            g.fillGradient(cx + 4, cy + 4, cx + 40, cy + 40, 0xFF6F9AD0, 0xFFA9C6EA);
+            g.enableScissor(cx + 4, cy + 4, cx + 40, cy + 40);
+            (i == 0 ? maison() : couches()).dessinerCentre(g, cx + 4, cy + 4, 36, 36, 5);
+            g.disableScissor();
+            texte(g, font, noms[i], cx + 46, cy + 8, TEXTE);
+            texte(g, font, auteurs[i], cx + 46, cy + 19, DOUX);
+            faux_bouton(g, "Voir", cx + cl - 34, cy + 22, 30);
+        }
+    }
+
+    /** Les touches, en grand. */
+    private void maquetteTouches(GuiGraphicsExtractor g, int x, int y, int l, int h) {
+        KeyMapping[] touches = {ChantierClient.OUVRIR, ChantierClient.COUCHE_HAUT, ChantierClient.COUCHE_BAS};
+        for (int i = 0; i < touches.length; i++) {
+            String nom = touches[i].getKey().getDisplayName().getString();
+            int lt = Math.max(40, font.width(nom) + 16);
+            faux_bouton(g, nom, x + l / 2 - lt / 2, y + h / 2 - 40 + i * 28, lt);
         }
     }
 }
