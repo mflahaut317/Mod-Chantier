@@ -18,6 +18,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -104,6 +105,18 @@ public class ChantierClient {
 
     static void dessiner(GuiGraphicsExtractor g, DeltaTracker delta) {
         Minecraft mc = Minecraft.getInstance();
+        Block attendu = Hologramme.blocVise();
+        if (attendu != null && mc.player != null) {
+            // Sous le viseur : le bloc à poser ici
+            ItemStack pile = new ItemStack(attendu.asItem());
+            String nom = (Hologramme.viseFaux ? "À remplacer par : " : "") + attendu.getName().getString();
+            int l = mc.getWindow().getGuiScaledWidth(), h = mc.getWindow().getGuiScaledHeight();
+            int largeur = 22 + mc.font.width(nom);
+            int x = l / 2 - largeur / 2, y = h / 2 + 12;
+            g.fill(x - 3, y - 2, x + largeur + 3, y + 18, 0xB0000000);
+            if (!pile.isEmpty()) g.item(pile, x, y);
+            g.text(mc.font, nom, x + 20, y + 5, Hologramme.viseFaux ? 0xFFFF7070 : 0xFFFFFFFF);
+        }
         if (Hologramme.suivre && mc.player != null) {
             String aide = "Clic droit : poser ici · Clic gauche : tourner";
             int l = mc.getWindow().getGuiScaledWidth(), h = mc.getWindow().getGuiScaledHeight();

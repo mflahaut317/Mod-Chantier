@@ -45,6 +45,13 @@ final class Hologramme {
     /** Dessiné par-dessus tout (visible à travers les blocs) : utile avec les shaders. */
     static boolean parDessus;
 
+    /** Bloc fantôme visé par le joueur (-1 : aucun) et ce qui se trouve à sa place. */
+    static int vise = -1;
+    static boolean viseFaux;
+    /** Position monde -> n° du bloc, recalculé quand l'hologramme bouge. */
+    private static final java.util.HashMap<Long, Integer> INDEX = new java.util.HashMap<>();
+    private static String cleIndex = "";
+
     private static boolean restaure;
     private static int compteur;
 
@@ -176,8 +183,10 @@ final class Hologramme {
         if (mc.player == null || mc.level == null) return;
         if (!restaure) { restaure = true; restaurer(); }
         if (plan != null && suivre) suivreViseur(mc);
+        vise = -1;
         if (plan == null || origine == null || !visible) return;
         if (!mc.level.dimension().identifier().toString().equals(dimension)) return;
+        if (!suivre) chercherVise(mc);
 
         boolean stats = ++compteur % 20 == 0;
         int bons = 0, vus = 0, dessines = 0;
@@ -208,6 +217,7 @@ final class Hologramme {
                     net.minecraft.gizmos.GizmoProperties p = Gizmos.cuboid(new AABB(x + m, y + m, z + m, x + 1 - m, y + 1 - m, z + 1 - m),
                             GizmoStyle.strokeAndFill(0xC0000000 | rgb, 1.0f, 0x60000000 | rgb));
                     if (parDessus) p.setAlwaysOnTop();
+                    if (i == vise) Gizmos.cuboid(new AABB(x, y, z, x + 1, y + 1, z + 1), GizmoStyle.stroke(0xFFFFFFFF, 3.0f));
                 } else {
                     // Un autre bloc est à la place : en rouge, un peu plus gros pour qu'on le voie
                     net.minecraft.gizmos.GizmoProperties p = Gizmos.cuboid(new AABB(x - 0.01, y - 0.01, z - 0.01, x + 1.01, y + 1.01, z + 1.01),
@@ -219,6 +229,37 @@ final class Hologramme {
         }
         if (stats) { poses = bons; total = vus; }
     }
+
+    /** Suit le regard (jusqu'à 24 blocs) et note le premier bloc fantôme pas encore bien posé. */
+    private static void chercherVise(Minecraft mc) {
+        String cle = plan.n + "|" + origine.asLong() + "|" + rotation;
+        if (!cle.equals(cleIndex)) {
+            INDEX.clear();
+            BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+            for (int i = 0; i < plan.n; i++) INDEX.put(monde(i, p).asLong(), i);
+            cleIndex = cle;
+        }
+        net.minecraft.world.phys.Vec3 oeil = mc.player.getEyePosition();
+        net.minecraft.world.phys.Vec3 dir = mc.player.getLookAngle();
+        long dernier = Long.MIN_VALUE;
+        for (double t = 0.2; t <= 24; t += 0.1) {
+            BlockPos bp = BlockPos.containing(oeil.add(dir.scale(t)));
+            long cle2 = bp.asLong();
+            if (cle2 == dernier) continue;
+            dernier = cle2;
+            BlockState actuel = mc.level.getBlockState(bp);
+            Integer i = INDEX.get(cle2);
+            if (i != null && (couche < 0 || plan.pos[i * 3 + 1] == couche) && actuel.getBlock() != plan.blocs[i]) {
+                vise = i;
+                viseFaux = !(actuel.isAir() || actuel.canBeReplaced());
+                return;
+            }
+            if (!actuel.isAir() && !actuel.canBeReplaced()) return; // un vrai bloc cache la suite
+        }
+    }
+
+    /** Bloc attendu à l'endroit visé (null si on ne vise aucun fantôme). */
+    static Block blocVise() { return plan != null && vise >= 0 && vise < plan.n ? plan.blocs[vise] : null; }
 
     // ---------- Sauvegarde (pour retrouver l'hologramme à la prochaine connexion) ----------
 
