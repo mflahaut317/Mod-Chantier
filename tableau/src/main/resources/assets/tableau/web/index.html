@@ -45,7 +45,10 @@
   .onglets { display: flex; gap: 6px; margin-bottom: 8px; }
   .onglets button { flex: 1; background: var(--carte2); color: var(--texte); border: 1px solid var(--bord); border-radius: 10px; padding: 7px; font: inherit; }
   .onglets button.actif { border-color: var(--bleu); color: var(--bleu); }
-  svg { width: 100%; height: 300px; background: #0e1318; border-radius: 12px; display: block; }
+  .cadre-carte { position: relative; }
+  canvas#carte { width: 100%; height: 380px; background: #0e1318; border-radius: 12px; display: block; touch-action: none; cursor: grab; image-rendering: pixelated; }
+  .zoom-btn { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .zoom-btn button { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--bord); background: rgba(27,33,41,.9); color: var(--texte); font-size: 18px; }
   .legende { display: flex; gap: 14px; color: var(--doux); font-size: 12px; margin-top: 8px; flex-wrap: wrap; }
   .souvenir { display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 10px 0; border-top: 1px solid var(--bord); }
   .souvenir:first-of-type { border-top: 0; padding-top: 0; }
@@ -70,8 +73,12 @@
   <section><h2>Joueurs connectés</h2><div id="joueurs"></div></section>
   <section class="large"><h2>Carte</h2>
     <div class="onglets" id="dims"></div>
-    <svg id="carte" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet"></svg>
-    <div class="legende"><span>● joueur</span><span>■ chantier</span><span>◆ hologramme</span><span>grille : 100 blocs</span></div>
+    <div class="cadre-carte">
+      <canvas id="carte"></canvas>
+      <div class="zoom-btn"><button onclick="zoomer(1.5)">+</button><button onclick="zoomer(1/1.5)">−</button><button onclick="centrer()">◎</button></div>
+    </div>
+    <div class="legende"><span>● joueur</span><span>■ chantier</span><span>◆ hologramme</span><span>glisse pour bouger · molette ou 2 doigts pour zoomer</span></div>
+    <div class="legende" style="margin-top:2px">La carte se dessine toute seule autour des joueurs quand ils explorent.</div>
   </section>
   <section><h2>Chantiers</h2><div id="chantiers"></div></section>
   <section><h2>Journal du serveur</h2><div id="journal"></div></section>
@@ -154,38 +161,113 @@ function dessiner() {
 
 function zoom(src) { $('zoomImg').src = src; $('zoom').style.display = 'grid'; }
 
-function carte() {
-  const e = etat;
-  $('dims').innerHTML = Object.entries(DIMS).map(([k, v]) =>
-    `<button class="${k === dim ? 'actif' : ''}" onclick="dim='${k}';carte()">${v}</button>`).join('');
-  const pts = [];
+// ---------- Carte : tuiles de 512 x 512 blocs dessinées par le serveur ----------
+const TUILE = 512;
+const vue = { x: 0, z: 0, echelle: 1, centree: false };   // centre (blocs) et pixels par bloc
+let tuiles = [], images = {}, dimTuiles = '', majTuiles = 0;
+
+async function chargerTuiles() {
+  try {
+    tuiles = await (await fetch('/carte/' + dim, { cache: 'no-store' })).json();
+    dimTuiles = dim; majTuiles = Date.now();
+    for (const k in images) delete images[k]; // nouvelles versions des images
+    dessinerCarte();
+  } catch (e) {}
+}
+
+function pointsCarte() {
+  const e = etat, pts = [];
+  if (!e) return pts;
   e.joueurs.filter(j => j.dimension === dim).forEach(j => pts.push({ x: j.x, z: j.z, t: 'j', n: j.nom }));
   e.chantiers.forEach(c => {
     if (c.dimension && c.dimension.endsWith(dim)) pts.push({ x: c.x, z: c.z, t: 'c', n: c.titre });
     if (c.holo && c.holoDimension && c.holoDimension.endsWith(dim)) pts.push({ x: c.holoX, z: c.holoZ, t: 'h', n: c.holo });
   });
-  const svg = $('carte');
-  if (!pts.length) { svg.innerHTML = '<text x="500" y="300" fill="#8e9bab" text-anchor="middle" font-size="26">Rien à afficher ici</text>'; return; }
-  let minX = Math.min(...pts.map(p => p.x)), maxX = Math.max(...pts.map(p => p.x));
-  let minZ = Math.min(...pts.map(p => p.z)), maxZ = Math.max(...pts.map(p => p.z));
-  const marge = 60, cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
-  const etendue = Math.max(maxX - minX, (maxZ - minZ) * 1000 / 600, 200) + marge * 2;
-  const ech = 1000 / etendue;
-  const X = x => 500 + (x - cx) * ech, Y = z => 300 + (z - cz) * ech;
-  let h = '';
-  const pas = 100, x0 = Math.floor((cx - etendue / 2) / pas) * pas, z0 = Math.floor((cz - etendue * 0.3) / pas) * pas;
-  for (let x = x0; x < cx + etendue / 2; x += pas) h += `<line x1="${X(x)}" y1="0" x2="${X(x)}" y2="600" stroke="#1d2630"/>`;
-  for (let z = z0; z < cz + etendue * 0.3 + pas; z += pas) h += `<line x1="0" y1="${Y(z)}" x2="1000" y2="${Y(z)}" stroke="#1d2630"/>`;
-  for (const p of pts) {
-    const x = X(p.x), y = Y(p.z);
-    if (p.t === 'j') h += `<circle cx="${x}" cy="${y}" r="9" fill="#5aa9f0" stroke="#fff" stroke-width="2"/>`;
-    if (p.t === 'c') h += `<rect x="${x - 9}" y="${y - 9}" width="18" height="18" rx="3" fill="#f0a83a"/>`;
-    if (p.t === 'h') h += `<rect x="${x - 8}" y="${y - 8}" width="16" height="16" transform="rotate(45 ${x} ${y})" fill="#b98cf5"/>`;
-    h += `<text x="${x + 14}" y="${y + 6}" fill="#e8edf2" font-size="20">${esc(p.n)}</text>`;
-    h += `<text x="${x + 14}" y="${y + 26}" fill="#8e9bab" font-size="15">${p.x} ${p.z}</text>`;
-  }
-  svg.innerHTML = h;
+  return pts;
 }
+
+function centrer() {
+  const pts = pointsCarte();
+  if (pts.length) { vue.x = pts.reduce((a, p) => a + p.x, 0) / pts.length; vue.z = pts.reduce((a, p) => a + p.z, 0) / pts.length; }
+  else if (tuiles.length) { vue.x = tuiles[0][0] * TUILE + TUILE / 2; vue.z = tuiles[0][1] * TUILE + TUILE / 2; }
+  vue.echelle = 1;
+  dessinerCarte();
+}
+
+function zoomer(f) { vue.echelle = Math.max(0.125, Math.min(8, vue.echelle * f)); dessinerCarte(); }
+
+function carte() {
+  $('dims').innerHTML = Object.entries(DIMS).map(([k, v]) =>
+    `<button class="${k === dim ? 'actif' : ''}" onclick="changerDim('${k}')">${v}</button>`).join('');
+  if (dimTuiles !== dim || Date.now() - majTuiles > 30000) chargerTuiles();
+  if (!vue.centree && etat) { vue.centree = true; centrer(); }
+  dessinerCarte();
+}
+
+function changerDim(k) { dim = k; vue.centree = false; dimTuiles = ''; carte(); }
+
+function dessinerCarte() {
+  const c = $('carte'), r = window.devicePixelRatio || 1;
+  const L = c.clientWidth, H = c.clientHeight;
+  if (c.width !== L * r) { c.width = L * r; c.height = H * r; }
+  const g = c.getContext('2d');
+  g.setTransform(r, 0, 0, r, 0, 0);
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = '#0e1318'; g.fillRect(0, 0, L, H);
+  const X = x => L / 2 + (x - vue.x) * vue.echelle, Y = z => H / 2 + (z - vue.z) * vue.echelle;
+  for (const [tx, tz] of tuiles) {
+    const x = X(tx * TUILE), y = Y(tz * TUILE), t = TUILE * vue.echelle;
+    if (x > L || y > H || x + t < 0 || y + t < 0) continue;
+    const cle = dim + tx + '_' + tz;
+    let img = images[cle];
+    if (!img) {
+      img = images[cle] = new Image();
+      img.onload = dessinerCarte;
+      img.src = `/carte/${dim}/${tx}/${tz}.png?t=${majTuiles}`;
+    }
+    if (img.complete && img.naturalWidth) g.drawImage(img, x, y, t, t);
+  }
+  if (!tuiles.length) {
+    g.fillStyle = '#8e9bab'; g.font = '14px system-ui'; g.textAlign = 'center';
+    g.fillText('Pas encore de carte : elle se dessine quand quelqu\'un explore.', L / 2, H / 2);
+    g.textAlign = 'left';
+  }
+  for (const p of pointsCarte()) {
+    const x = X(p.x), y = Y(p.z);
+    g.lineWidth = 2; g.strokeStyle = '#fff';
+    if (p.t === 'j') { g.fillStyle = '#5aa9f0'; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill(); g.stroke(); }
+    if (p.t === 'c') { g.fillStyle = '#f0a83a'; g.fillRect(x - 6, y - 6, 12, 12); g.strokeRect(x - 6, y - 6, 12, 12); }
+    if (p.t === 'h') { g.fillStyle = '#b98cf5'; g.beginPath(); g.moveTo(x, y - 8); g.lineTo(x + 8, y); g.lineTo(x, y + 8); g.lineTo(x - 8, y); g.closePath(); g.fill(); g.stroke(); }
+    g.font = '600 13px system-ui';
+    g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.75)'; g.strokeText(p.n, x + 10, y + 4);
+    g.fillStyle = '#fff'; g.fillText(p.n, x + 10, y + 4);
+  }
+  g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(8, H - 26, 150, 18);
+  g.fillStyle = '#e8edf2'; g.font = '12px system-ui';
+  g.fillText(`X ${Math.round(vue.x)}  Z ${Math.round(vue.z)}  ·  x${vue.echelle < 1 ? '1/' + Math.round(1 / vue.echelle) : vue.echelle}`, 14, H - 13);
+}
+
+// Glisser (souris ou doigt) et pincer pour zoomer
+(() => {
+  const c = $('carte'), doigts = new Map();
+  let ecart = 0;
+  c.addEventListener('pointerdown', e => { c.setPointerCapture(e.pointerId); doigts.set(e.pointerId, { x: e.clientX, y: e.clientY }); });
+  c.addEventListener('pointermove', e => {
+    const avant = doigts.get(e.pointerId); if (!avant) return;
+    if (doigts.size === 1) { vue.x -= (e.clientX - avant.x) / vue.echelle; vue.z -= (e.clientY - avant.y) / vue.echelle; }
+    doigts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (doigts.size === 2) {
+      const [a, b] = [...doigts.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (ecart) zoomer(d / ecart);
+      ecart = d;
+    }
+    dessinerCarte();
+  });
+  const fin = e => { doigts.delete(e.pointerId); ecart = 0; };
+  c.addEventListener('pointerup', fin); c.addEventListener('pointercancel', fin);
+  c.addEventListener('wheel', e => { e.preventDefault(); zoomer(e.deltaY < 0 ? 1.25 : 0.8); }, { passive: false });
+  window.addEventListener('resize', dessinerCarte);
+})();
 
 async function charger() {
   try {

@@ -27,12 +27,15 @@ public class Tableau {
             web = ServeurWeb.demarrer();
         });
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent e) -> {
+            Carte.sauver();
             if (web != null) web.arreter();
             web = null;
         });
         // Toutes les 2 secondes, sur le thread du jeu : une photo de l'état, servie telle quelle au navigateur
         NeoForge.EVENT_BUS.addListener((ServerTickEvent.Post e) -> {
             if (++ticks % 40 == 0) Instantane.mettreAJour(e.getServer());
+            if (ticks % 20 == 0) Carte.passage(e.getServer());
+            if (ticks % 1200 == 0) Carte.sauver(); // toutes les minutes
         });
     }
 }

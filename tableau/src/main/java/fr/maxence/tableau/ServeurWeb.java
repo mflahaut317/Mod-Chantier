@@ -120,6 +120,20 @@ final class ServeurWeb {
                 envoyer(out, 200, "text/html; charset=utf-8", page());
             } else if (chemin.equals("/api/etat")) {
                 envoyer(out, 200, "application/json; charset=utf-8", Instantane.json.getBytes(StandardCharsets.UTF_8));
+            } else if (chemin.startsWith("/carte/")) {
+                // /carte/<dimension>          -> liste des tuiles
+                // /carte/<dimension>/<x>/<z>  -> image PNG d'une tuile
+                String[] p = chemin.substring(7).split("/");
+                String dim = p[0].replaceAll("[^a-z_]", "");
+                if (p.length == 1) {
+                    envoyer(out, 200, "application/json", Carte.liste(dim).getBytes(StandardCharsets.UTF_8));
+                } else {
+                    byte[] png = null;
+                    try { png = Carte.imageTuile(dim, Integer.parseInt(p[1]), Integer.parseInt(p[2].replace(".png", ""))); }
+                    catch (NumberFormatException | ArrayIndexOutOfBoundsException ignored) { }
+                    if (png != null) envoyer(out, 200, "image/png", png);
+                    else envoyer(out, 404, "text/plain", "Introuvable".getBytes(StandardCharsets.UTF_8));
+                }
             } else if (chemin.startsWith("/photo/")) {
                 String id = chemin.substring(7).replaceAll("[^a-z0-9-]", "");
                 Path f = FMLPaths.CONFIGDIR.get().resolve("souvenirs").resolve("photos").resolve(id + ".jpg");
