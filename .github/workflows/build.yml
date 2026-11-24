@@ -35,6 +35,9 @@ jobs:
 
       - name: Build Tableau
         run: ./gradlew -p tableau build
+
+      - name: Build Durabilite
+        run: ./gradlew -p durabilite build
       - name: Upload jar
         uses: actions/upload-artifact@v4
         with:
@@ -43,6 +46,7 @@ jobs:
             build/libs/*.jar
             souvenirs/build/libs/*.jar
             tableau/build/libs/*.jar
+            durabilite/build/libs/*.jar
 
       - name: Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -50,10 +54,11 @@ jobs:
         with:
           tag_name: dernier
           name: Dernière version
-          body: Mods Chantier, Souvenirs et Tableau compilés automatiquement depuis le dernier commit de main.
+          body: Mods Chantier, Souvenirs, Tableau et Durabilité compilés automatiquement depuis le dernier commit de main.
           make_latest: true
           overwrite_files: false
           files: |
             build/libs/*.jar
             souvenirs/build/libs/*.jar
             tableau/build/libs/*.jar
+            durabilite/build/libs/*.jar
