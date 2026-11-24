@@ -22,13 +22,26 @@ import net.minecraft.world.level.block.Block;
 final class LecteurLitematic {
     private LecteurLitematic() {}
 
+    /** Extensions lues : Litematica / BlockCompanion et WorldEdit (Sponge). */
+    static boolean estSchema(Path fichier) {
+        String n = fichier.getFileName().toString().toLowerCase();
+        return n.endsWith(".litematic") || n.endsWith(".schem") || n.endsWith(".nbt");
+    }
+
     /** @return item -> quantité, dans l'ordre décroissant */
     static Map<Item, Integer> lire(Path fichier) throws IOException {
         CompoundTag racine = NbtIo.readCompressed(fichier, NbtAccounter.unlimitedHeap());
-        CompoundTag regions = racine.getCompoundOrEmpty("Regions");
         Map<Item, Integer> total = new HashMap<>();
-        for (String nom : regions.keySet()) {
-            lireRegion(regions.getCompoundOrEmpty(nom), total);
+        String nomFichier = fichier.getFileName().toString().toLowerCase();
+        if (nomFichier.endsWith(".schem")) {
+            lireSponge(racine, total);
+        } else if (nomFichier.endsWith(".nbt")) {
+            lireStructure(racine, total);
+        } else {
+            CompoundTag regions = racine.getCompoundOrEmpty("Regions");
+            for (String nom : regions.keySet()) {
+                lireRegion(regions.getCompoundOrEmpty(nom), total);
+            }
         }
         Map<Item, Integer> trie = new LinkedHashMap<>();
         total.entrySet().stream()
@@ -70,6 +83,85 @@ final class LecteurLitematic {
             if (item == null) continue;
             long n = compte[i] * multiplicateur(props);
             total.merge(item, (int) Math.min(Integer.MAX_VALUE, n), Integer::sum);
+        }
+    }
+
+    /**
+     * Format .schem de WorldEdit (Sponge v2 et v3) : une palette « minecraft:oak_stairs[facing=east] » -> index,
+     * et les blocs encodés en varints.
+     */
+    private static void lireSponge(CompoundTag racine, Map<Item, Integer> total) {
+        CompoundTag schema = racine.contains("Schematic") ? racine.getCompoundOrEmpty("Schematic") : racine;
+        CompoundTag palette;
+        byte[] donnees;
+        if (schema.contains("Blocks")) { // v3
+            CompoundTag blocs = schema.getCompoundOrEmpty("Blocks");
+            palette = blocs.getCompoundOrEmpty("Palette");
+            donnees = blocs.getByteArray("Data").orElse(new byte[0]);
+        } else { // v2
+            palette = schema.getCompoundOrEmpty("Palette");
+            donnees = schema.getByteArray("BlockData").orElse(new byte[0]);
+        }
+        if (palette.isEmpty() || donnees.length == 0) return;
+
+        Map<Integer, String> parIndex = new HashMap<>();
+        for (String etat : palette.keySet()) parIndex.put(palette.getIntOr(etat, -1), etat);
+
+        Map<Integer, Long> compte = new HashMap<>();
+        int i = 0;
+        while (i < donnees.length) {
+            int valeur = 0, decalage = 0;
+            byte b;
+            do {
+                b = donnees[i++];
+                valeur |= (b & 0x7F) << decalage;
+                decalage += 7;
+            } while ((b & 0x80) != 0 && i < donnees.length && decalage < 35);
+            compte.merge(valeur, 1L, Long::sum);
+        }
+
+        for (Map.Entry<Integer, Long> e : compte.entrySet()) {
+            String etat = parIndex.get(e.getKey());
+            if (etat == null) continue;
+            // "minecraft:oak_slab[type=double,waterlogged=false]" -> nom + propriétés
+            String nom = etat;
+            CompoundTag props = new CompoundTag();
+            int crochet = etat.indexOf('[');
+            if (crochet >= 0 && etat.endsWith("]")) {
+                nom = etat.substring(0, crochet);
+                for (String paire : etat.substring(crochet + 1, etat.length() - 1).split(",")) {
+                    int egal = paire.indexOf('=');
+                    if (egal > 0) props.putString(paire.substring(0, egal).trim(), paire.substring(egal + 1).trim());
+                }
+            }
+            Item item = itemPour(nom, props);
+            if (item == null) continue;
+            long n = e.getValue() * multiplicateur(props);
+            total.merge(item, (int) Math.min(Integer.MAX_VALUE, n), Integer::sum);
+        }
+    }
+
+    /** Format .nbt (bloc de structure, Create) : « palette » de blocs et liste « blocks » avec un index « state ». */
+    private static void lireStructure(CompoundTag racine, Map<Item, Integer> total) {
+        ListTag palette = racine.getListOrEmpty("palette");
+        if (palette.isEmpty()) {
+            ListTag palettes = racine.getListOrEmpty("palettes"); // variantes : on prend la première
+            if (!palettes.isEmpty()) palette = palettes.getListOrEmpty(0);
+        }
+        ListTag blocs = racine.getListOrEmpty("blocks");
+        if (palette.isEmpty() || blocs.isEmpty()) return;
+        long[] compte = new long[palette.size()];
+        for (int i = 0; i < blocs.size(); i++) {
+            int etat = blocs.getCompoundOrEmpty(i).getIntOr("state", -1);
+            if (etat >= 0 && etat < compte.length) compte[etat]++;
+        }
+        for (int i = 0; i < palette.size(); i++) {
+            if (compte[i] == 0) continue;
+            CompoundTag entree = palette.getCompoundOrEmpty(i);
+            CompoundTag props = entree.getCompoundOrEmpty("Properties");
+            Item item = itemPour(entree.getStringOr("Name", ""), props);
+            if (item == null) continue;
+            total.merge(item, (int) Math.min(Integer.MAX_VALUE, compte[i] * multiplicateur(props)), Integer::sum);
         }
     }
 

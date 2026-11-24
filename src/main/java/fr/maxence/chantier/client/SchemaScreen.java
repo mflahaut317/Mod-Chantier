@@ -46,7 +46,7 @@ public class SchemaScreen extends Screen {
         fichiers.clear();
         if (Files.isDirectory(dossier)) {
             try (Stream<Path> s = Files.walk(dossier, 3)) {
-                s.filter(p -> p.getFileName().toString().toLowerCase().endsWith(".litematic"))
+                s.filter(LecteurLitematic::estSchema)
                         .sorted()
                         .forEach(fichiers::add);
             } catch (IOException e) {
@@ -90,7 +90,7 @@ public class SchemaScreen extends Screen {
             for (Map.Entry<Item, Integer> e : blocs.entrySet()) {
                 lignes.add(new EtatPayload.Ligne(BuiltInRegistries.ITEM.getKey(e.getKey()).toString(), e.getValue(), 0));
             }
-            String nom = fichier.getFileName().toString().replaceAll("(?i)\\.litematic$", "");
+            String nom = fichier.getFileName().toString().replaceAll("(?i)\\.(litematic|schem|nbt)$", "");
             ClientPacketDistributor.sendToServer(new ImportPayload(nom, lignes));
             return null;
         } catch (IOException | RuntimeException e) {
@@ -104,7 +104,7 @@ public class SchemaScreen extends Screen {
      */
     static String deposer(List<Path> fichiers) {
         for (Path f : fichiers) {
-            if (!f.getFileName().toString().toLowerCase().endsWith(".litematic")) continue;
+            if (!LecteurLitematic.estSchema(f)) continue;
             try {
                 Path dossier = FMLPaths.GAMEDIR.get().resolve("schematics");
                 Files.createDirectories(dossier);
@@ -116,7 +116,7 @@ public class SchemaScreen extends Screen {
             String erreur = envoyer(f);
             return erreur == null ? "Schéma « " + f.getFileName() + " » envoyé au chantier." : erreur;
         }
-        return "Glisse un fichier .litematic.";
+        return "Glisse un fichier .litematic, .schem ou .nbt.";
     }
 
     @Override
@@ -139,10 +139,10 @@ public class SchemaScreen extends Screen {
         super.extractRenderState(g, mouseX, mouseY, delta);
         String titre = "Importer un schéma (" + fichiers.size() + ")";
         g.text(font, titre, width / 2 - font.width(titre) / 2, 10, OR);
-        String aide = "Clique sur un schéma, ou glisse un fichier .litematic dans la fenêtre";
+        String aide = "Clique sur un schéma, ou glisse un .litematic / .schem / .nbt dans la fenêtre";
         g.text(font, font.plainSubstrByWidth(aide, width - 20), width / 2 - Math.min(font.width(aide), width - 20) / 2, 22, GRIS);
         if (fichiers.isEmpty()) {
-            String vide = "Aucun fichier .litematic trouvé.";
+            String vide = "Aucun schéma (.litematic, .schem, .nbt) trouvé.";
             g.text(font, vide, width / 2 - font.width(vide) / 2, height / 2, GRIS);
         }
         if (!message.isEmpty()) {
