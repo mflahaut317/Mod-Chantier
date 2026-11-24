@@ -42,6 +42,7 @@ final class Touches {
         while (COUCHE_HAUT.consumeClick()) Hologramme.changerCouche(1);
         while (COUCHE_BAS.consumeClick()) Hologramme.changerCouche(-1);
         while (EDITION.consumeClick()) {
+            if (Hologramme.suivre) { Hologramme.annulerSuivi(); continue; }
             if (Hologramme.plan != null) Hologramme.edition = !Hologramme.edition;
         }
         boolean actif = Hologramme.edition && Hologramme.plan != null;
@@ -51,7 +52,10 @@ final class Touches {
         while (GAUCHE.consumeClick()) if (actif) Hologramme.deplacer(0, -1, 0);
         while (DROITE.consumeClick()) if (actif) Hologramme.deplacer(0, 1, 0);
         while (TOURNER.consumeClick()) if (actif) Hologramme.tourner();
-        while (VISER.consumeClick()) if (actif) Hologramme.commencerSuivi();
+        while (VISER.consumeClick()) {
+            if (Hologramme.suivre) Hologramme.annulerSuivi();
+            else if (actif) Hologramme.commencerSuivi();
+        }
         if (Hologramme.plan == null) Hologramme.edition = false;
     }
 

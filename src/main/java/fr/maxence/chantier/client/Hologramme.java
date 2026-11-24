@@ -82,6 +82,7 @@ final class Hologramme {
             dimension = mc.level.dimension().identifier().toString();
             poses = 0;
             total = 0;
+            avantSuivi = null; // annuler le retire
             suivre = true;  // il apparaît devant le joueur et suit son viseur
             return null;
         } catch (IOException | RuntimeException e) {
@@ -134,8 +135,23 @@ final class Hologramme {
     /** Commence le placement en visant (l'hologramme suit le viseur). */
     static void commencerSuivi() {
         if (plan == null) return;
+        avantSuivi = origine;
+        rotationAvantSuivi = rotation;
         suivre = true;
         visible = true;
+    }
+
+    private static BlockPos avantSuivi;
+    private static int rotationAvantSuivi;
+
+    /** Annule le placement en visant : l'hologramme revient où il était (ou disparaît s'il venait d'être chargé). */
+    static void annulerSuivi() {
+        if (!suivre) return;
+        suivre = false;
+        if (avantSuivi == null) { retirerLocal(); return; }
+        origine = avantSuivi;
+        rotation = rotationAvantSuivi;
+        apresChangement();
     }
 
     /** Clic droit pendant le suivi : l'hologramme reste là. */

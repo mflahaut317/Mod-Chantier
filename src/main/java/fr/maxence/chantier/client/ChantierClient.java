@@ -108,7 +108,7 @@ public class ChantierClient {
         }
         if (Hologramme.edition && Hologramme.plan != null && mc.player != null) Touches.dessinerAide(g, mc);
         if (Hologramme.suivre && mc.player != null) {
-            String aide = "Clic droit : poser ici · Clic gauche : tourner";
+            String aide = "Clic droit : poser ici · Clic gauche : tourner · " + Touches.VISER.getKey().getDisplayName().getString() + " : annuler";
             int l = mc.getWindow().getGuiScaledWidth(), h = mc.getWindow().getGuiScaledHeight();
             int x = l / 2 - mc.font.width(aide) / 2, y = h / 2 + 16;
             g.fill(x - 4, y - 3, x + mc.font.width(aide) + 4, y + 11, 0xA0000000);
