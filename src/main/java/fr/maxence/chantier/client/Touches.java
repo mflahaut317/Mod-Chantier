@@ -13,16 +13,16 @@ final class Touches {
 
     static final net.minecraft.client.KeyMapping.Category CATEGORIE =
             new net.minecraft.client.KeyMapping.Category(Identifier.fromNamespaceAndPath(fr.maxence.chantier.Chantier.MODID, "chantier"));
-    static final net.minecraft.client.KeyMapping OUVRIR = new net.minecraft.client.KeyMapping("key.chantier.ouvrir", 72, CATEGORIE);       // H (K = shaders, U = waypoints Xaero)
-    static final net.minecraft.client.KeyMapping COUCHE_HAUT = new net.minecraft.client.KeyMapping("key.chantier.couche_haut", 266, CATEGORIE); // Page haut
-    static final net.minecraft.client.KeyMapping COUCHE_BAS = new net.minecraft.client.KeyMapping("key.chantier.couche_bas", 267, CATEGORIE);   // Page bas
-    static final net.minecraft.client.KeyMapping EDITION = new net.minecraft.client.KeyMapping("key.chantier.edition", 73, CATEGORIE);      // I
-    static final net.minecraft.client.KeyMapping AVANCER = new net.minecraft.client.KeyMapping("key.chantier.avancer", 265, CATEGORIE);     // flèche haut
-    static final net.minecraft.client.KeyMapping RECULER = new net.minecraft.client.KeyMapping("key.chantier.reculer", 264, CATEGORIE);     // flèche bas
-    static final net.minecraft.client.KeyMapping GAUCHE = new net.minecraft.client.KeyMapping("key.chantier.gauche", 263, CATEGORIE);       // flèche gauche
-    static final net.minecraft.client.KeyMapping DROITE = new net.minecraft.client.KeyMapping("key.chantier.droite", 262, CATEGORIE);       // flèche droite
-    static final net.minecraft.client.KeyMapping TOURNER = new net.minecraft.client.KeyMapping("key.chantier.tourner", 82, CATEGORIE);      // R
-    static final net.minecraft.client.KeyMapping VISER = new net.minecraft.client.KeyMapping("key.chantier.viser", 257, CATEGORIE);         // Entrée
+    static final net.minecraft.client.KeyMapping OUVRIR = new net.minecraft.client.KeyMapping("key.chantier.v2.ouvrir", com.mojang.blaze3d.platform.InputConstants.KEY_H, CATEGORIE);       // H (K = shaders, U = waypoints Xaero)
+    static final net.minecraft.client.KeyMapping COUCHE_HAUT = new net.minecraft.client.KeyMapping("key.chantier.v2.couche_haut", com.mojang.blaze3d.platform.InputConstants.KEY_PAGEUP, CATEGORIE); // Page haut
+    static final net.minecraft.client.KeyMapping COUCHE_BAS = new net.minecraft.client.KeyMapping("key.chantier.v2.couche_bas", com.mojang.blaze3d.platform.InputConstants.KEY_PAGEDOWN, CATEGORIE);   // Page bas
+    static final net.minecraft.client.KeyMapping EDITION = new net.minecraft.client.KeyMapping("key.chantier.v2.edition", com.mojang.blaze3d.platform.InputConstants.KEY_I, CATEGORIE);      // I
+    static final net.minecraft.client.KeyMapping AVANCER = new net.minecraft.client.KeyMapping("key.chantier.v2.avancer", com.mojang.blaze3d.platform.InputConstants.KEY_UP, CATEGORIE);     // flèche haut
+    static final net.minecraft.client.KeyMapping RECULER = new net.minecraft.client.KeyMapping("key.chantier.v2.reculer", com.mojang.blaze3d.platform.InputConstants.KEY_DOWN, CATEGORIE);     // flèche bas
+    static final net.minecraft.client.KeyMapping GAUCHE = new net.minecraft.client.KeyMapping("key.chantier.v2.gauche", com.mojang.blaze3d.platform.InputConstants.KEY_LEFT, CATEGORIE);       // flèche gauche
+    static final net.minecraft.client.KeyMapping DROITE = new net.minecraft.client.KeyMapping("key.chantier.v2.droite", com.mojang.blaze3d.platform.InputConstants.KEY_RIGHT, CATEGORIE);       // flèche droite
+    static final net.minecraft.client.KeyMapping TOURNER = new net.minecraft.client.KeyMapping("key.chantier.v2.tourner", com.mojang.blaze3d.platform.InputConstants.KEY_R, CATEGORIE);      // R
+    static final net.minecraft.client.KeyMapping VISER = new net.minecraft.client.KeyMapping("key.chantier.v2.viser", com.mojang.blaze3d.platform.InputConstants.KEY_RETURN, CATEGORIE);         // Entrée
 
 
     static void enregistrer(net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent event) {
