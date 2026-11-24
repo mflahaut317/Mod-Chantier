@@ -50,7 +50,7 @@ public class ChantierScreen extends CadreScreen {
     @Override
     protected void init() {
         modeChantier = dansChantier();
-        cadre(LARGEUR + 24, modeChantier ? 236 : 128);
+        cadre(LARGEUR + 24, modeChantier ? 210 : 128);
         gauche = px + 12;
         haut = py + 12;
         ConfigPayload c = ConfigRecue.get();
@@ -94,12 +94,7 @@ public class ChantierScreen extends CadreScreen {
         addRenderableWidget(Button.builder(Component.literal("OK"),
                 b -> envoyer("titre", champTitre.getValue())).bounds(x + 159, haut - 1, 65, 20).build());
 
-        champLien = new EditBox(font, x, haut + 26, 154, 18, Component.literal("Lien"));
-        champLien.setMaxLength(512);
-        champLien.setHint(Component.literal("Colle le lien Google Sheets"));
-        addRenderableWidget(champLien);
-        addRenderableWidget(Button.builder(Component.literal("Charger"),
-                b -> envoyer("lien", champLien.getValue())).bounds(x + 159, haut + 25, 65, 20).build());
+        champLien = null; // le lien Google Sheets est dans « Importer une liste »
 
         boutonSelection = addRenderableWidget(Button.builder(Component.literal("Choisir les coffres"), b -> {
             if (enSelection()) {
@@ -108,20 +103,20 @@ public class ChantierScreen extends CadreScreen {
                 envoyer("selection_on", "");
                 onClose(); // ferme l'écran pour pouvoir cliquer sur les coffres
             }
-        }).bounds(x, haut + 51, 154, 20).build());
+        }).bounds(x, haut + 25, 154, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Vider"),
-                b -> envoyer("vider_coffres", "")).bounds(x + 159, haut + 51, 65, 20).build());
+                b -> envoyer("vider_coffres", "")).bounds(x + 159, haut + 25, 65, 20).build());
 
-        champPseudo = new EditBox(font, x, haut + 90, 154, 18, Component.literal("Pseudo"));
+        champPseudo = new EditBox(font, x, haut + 64, 154, 18, Component.literal("Pseudo"));
         champPseudo.setMaxLength(16);
         champPseudo.setHint(Component.literal("Pseudo d'un joueur connecté"));
         addRenderableWidget(champPseudo);
         addRenderableWidget(Button.builder(Component.literal("Ajouter"), b -> {
             envoyer("ajouter", champPseudo.getValue());
             champPseudo.setValue("");
-        }).bounds(x + 159, haut + 89, 65, 20).build());
+        }).bounds(x + 159, haut + 63, 65, 20).build());
 
-        int ya = haut + 128;
+        int ya = haut + 102;
         addRenderableWidget(Button.builder(Component.literal("Relire"),
                 b -> envoyer("actualiser", "")).bounds(gauche, ya, 70, 20).build());
         boutonMasquer = addRenderableWidget(Button.builder(Component.literal("Masquer"),
@@ -143,8 +138,8 @@ public class ChantierScreen extends CadreScreen {
         addRenderableWidget(Button.builder(Component.literal("Liste"),
                 b -> minecraft.gui.setScreen(new ListeScreen(this)))
                 .bounds(gauche, bas, 52, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Importer un schéma"),
-                b -> minecraft.gui.setScreen(new GalerieScreen(this)))
+        addRenderableWidget(Button.builder(Component.literal("Importer une liste"),
+                b -> minecraft.gui.setScreen(new SourceScreen(this)))
                 .bounds(gauche + 56, bas, 100, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Sur le terrain"),
                 b -> minecraft.gui.setScreen(new HoloScreen(this)))
@@ -212,22 +207,21 @@ public class ChantierScreen extends CadreScreen {
         }
 
         etiquette(g, new ItemStack(Items.NAME_TAG), "Titre", haut);
-        etiquette(g, new ItemStack(Items.PAPER), "Lien", haut + 26);
-        etiquette(g, new ItemStack(Items.CHEST), "Coffres", haut + 52);
-        etiquette(g, new ItemStack(Items.PLAYER_HEAD), "Membres", haut + 90);
-        g.fill(gauche, haut + 122, gauche + LARGEUR, haut + 123, CREUX);
+        etiquette(g, new ItemStack(Items.CHEST), "Coffres", haut + 26);
+        etiquette(g, new ItemStack(Items.PLAYER_HEAD), "Membres", haut + 64);
+        g.fill(gauche, haut + 96, gauche + LARGEUR, haut + 97, CREUX);
         if (c == null) {
-            texte(g, font, "En attente du serveur…", gauche, haut + 158, DOUX);
+            texte(g, font, "En attente du serveur…", gauche, haut + 132, DOUX);
             return;
         }
         String infoCoffres = c.coffres() == 0
                 ? "Aucun coffre : seuls les inventaires comptent."
                 : c.coffres() + " coffres choisis (+ inventaires des membres).";
-        texte(g, font, font.plainSubstrByWidth(infoCoffres, LARGEUR - CHAMP), gauche + CHAMP, haut + 75, DOUX);
-        texte(g, font, font.plainSubstrByWidth(c.membres(), LARGEUR - CHAMP), gauche + CHAMP, haut + 112, DOUX);
+        texte(g, font, font.plainSubstrByWidth(infoCoffres, LARGEUR - CHAMP), gauche + CHAMP, haut + 49, DOUX);
+        texte(g, font, font.plainSubstrByWidth(c.membres(), LARGEUR - CHAMP), gauche + CHAMP, haut + 86, DOUX);
 
         // Avancement : texte + barre
-        int y = haut + 156;
+        int y = haut + 130;
         String etat = c.materiaux() + " matériaux · " + c.pourcent() + " %";
         texte(g, font, etat, gauche, y, c.pourcent() >= 100 ? VERT : TEXTE);
         creux(g, gauche, y + 11, LARGEUR, 8, 0xFF5A5A5A);
