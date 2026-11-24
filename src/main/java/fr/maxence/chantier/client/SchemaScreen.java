@@ -126,8 +126,8 @@ public class SchemaScreen extends Screen {
                 rgb[i * 3 + 2] = (byte) c;
             }
             String nom = fichier.getFileName().toString().replaceAll("(?i)\\.(litematic|schem|nbt)$", "");
-            ClientPacketDistributor.sendToServer(new GaleriePayload(List.of(new GaleriePayload.Entree(
-                    "", nom, "", lecture.largeur(), lecture.hauteur(), rgb, lignes))));
+            ClientPacketDistributor.sendToServer(new fr.maxence.chantier.PartagePayload(new GaleriePayload.Entree(
+                    "", nom, "", lecture.largeur(), lecture.hauteur(), rgb, lignes)));
             return "Envoi de « " + nom + " » dans la galerie commune…";
         } catch (IOException | RuntimeException e) {
             return "Lecture impossible : " + e.getMessage();

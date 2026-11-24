@@ -148,9 +148,9 @@ public final class Actions {
     }
 
     /** Un joueur partage un schéma dans la galerie commune. */
-    static void partager(GaleriePayload paquet, IPayloadContext contexte) {
-        if (!(contexte.player() instanceof ServerPlayer joueur) || paquet.entrees().isEmpty()) return;
-        String message = GalerieCommune.partager(joueur, paquet.entrees().get(0));
+    static void partager(PartagePayload paquet, IPayloadContext contexte) {
+        if (!(contexte.player() instanceof ServerPlayer joueur)) return;
+        String message = GalerieCommune.partager(joueur, paquet.entree());
         joueur.sendSystemMessage(Component.literal(message));
         GalerieCommune.envoyerA(joueur);
     }
