@@ -47,8 +47,29 @@ public class ChantierClient {
         event.registerAboveAll(Identifier.fromNamespaceAndPath(Chantier.MODID, "liste"), ChantierClient::dessiner);
     }
 
+    // Touches (modifiables dans Options > Commandes > Chantier)
+    static final net.minecraft.client.KeyMapping.Category CATEGORIE =
+            new net.minecraft.client.KeyMapping.Category(Identifier.fromNamespaceAndPath(Chantier.MODID, "chantier"));
+    static final net.minecraft.client.KeyMapping OUVRIR = new net.minecraft.client.KeyMapping("key.chantier.ouvrir", 75, CATEGORIE);       // K
+    static final net.minecraft.client.KeyMapping COUCHE_HAUT = new net.minecraft.client.KeyMapping("key.chantier.couche_haut", 266, CATEGORIE); // Page haut
+    static final net.minecraft.client.KeyMapping COUCHE_BAS = new net.minecraft.client.KeyMapping("key.chantier.couche_bas", 267, CATEGORIE);   // Page bas
+
+    @SubscribeEvent
+    static void onTouches(net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent event) {
+        event.registerCategory(CATEGORIE);
+        event.register(OUVRIR);
+        event.register(COUCHE_HAUT);
+        event.register(COUCHE_BAS);
+    }
+
     @SubscribeEvent
     static void onTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
+        Minecraft mc = Minecraft.getInstance();
+        while (OUVRIR.consumeClick()) {
+            if (mc.player != null) mc.gui.setScreen(new ChantierScreen()); // les touches ne comptent que hors des menus
+        }
+        while (COUCHE_HAUT.consumeClick()) Hologramme.changerCouche(1);
+        while (COUCHE_BAS.consumeClick()) Hologramme.changerCouche(-1);
         Hologramme.tick();
     }
 

@@ -25,22 +25,17 @@ import net.neoforged.neoforge.client.network.ClientPacketDistributor;
  * Galerie des schémas .litematic du dossier « schematics » du jeu (celui de Litematica / BlockCompanion).
  * Un clic importe le schéma comme liste du chantier.
  */
-public class SchemaScreen extends Screen {
+public class SchemaScreen extends CadreScreen {
     private static final int LARGEUR = 300;
     private static final int HAUTEUR_LIGNE = 22;
-    private static final int GRIS = 0xFFAAAAAA;
-    private static final int OR = 0xFFFFD24A;
-    private static final int BLANC = 0xFFFFFFFF;
 
-    private final Screen parent;
     private final List<Path> fichiers = new ArrayList<>();
     private Path dossier;
     private int defilement = 0;
     private String message = "";
 
     public SchemaScreen(Screen parent) {
-        super(Component.literal("Mes schémas"));
-        this.parent = parent;
+        super("Mes schémas", parent);
     }
 
     @Override
@@ -56,17 +51,19 @@ public class SchemaScreen extends Screen {
                 message = "Impossible de lire le dossier schematics.";
             }
         }
+        cadre(LARGEUR + 24, 1000);
+        info = fichiers.size() + (fichiers.size() > 1 ? " fichiers" : " fichier");
         construireBoutons();
     }
 
     private int lignesVisibles() {
-        return Math.max(1, (height - 80) / HAUTEUR_LIGNE);
+        return Math.max(1, (ph - 80) / HAUTEUR_LIGNE);
     }
 
     private void construireBoutons() {
         clearWidgets();
-        int gauche = (width - LARGEUR) / 2;
-        int y = 36;
+        int gauche = px + 12;
+        int y = py + 24;
         int fin = Math.min(fichiers.size(), defilement + lignesVisibles());
         for (int i = defilement; i < fin; i++) {
             Path f = fichiers.get(i);
@@ -82,10 +79,10 @@ public class SchemaScreen extends Screen {
             y += HAUTEUR_LIGNE;
         }
         addRenderableWidget(Button.builder(Component.literal("Retour"), b -> onClose())
-                .bounds(width / 2 - 105, height - 28, 100, 20).build());
+                .bounds(width / 2 - 105, py + ph - 28, 100, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Trouver des schémas"),
                         ConfirmLinkScreen.confirmLink(this, URI.create("https://www.minecraft-schematics.com/")))
-                .bounds(width / 2 + 5, height - 28, 110, 20).build());
+                .bounds(width / 2 + 5, py + ph - 28, 110, 20).build());
     }
 
     private void importer(Path fichier) {
@@ -188,26 +185,15 @@ public class SchemaScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
         super.extractRenderState(g, mouseX, mouseY, delta);
-        String titre = "Mes schémas (" + fichiers.size() + ")";
-        g.text(font, titre, width / 2 - font.width(titre) / 2, 10, OR);
-        String aide = "Clique sur un schéma, ou glisse un .litematic / .schem / .nbt dans la fenêtre";
-        g.text(font, font.plainSubstrByWidth(aide, width - 20), width / 2 - Math.min(font.width(aide), width - 20) / 2, 22, GRIS);
+        int gauche = px + 12;
+        String aide = "Importer : clic sur le nom · Terrain : hologramme · Partager : galerie";
+        texte(g, font, font.plainSubstrByWidth(aide, LARGEUR), gauche, py + 10, DOUX);
         if (fichiers.isEmpty()) {
-            String vide = "Aucun schéma (.litematic, .schem, .nbt) trouvé.";
-            g.text(font, vide, width / 2 - font.width(vide) / 2, height / 2, GRIS);
+            texte(g, font, "Aucun schéma (.litematic, .schem, .nbt) trouvé.", gauche, py + 30, TEXTE);
+            texte(g, font, "Glisse un fichier dans cette fenêtre pour l'ajouter.", gauche, py + 42, DOUX);
         }
         if (!message.isEmpty()) {
-            g.text(font, font.plainSubstrByWidth(message, width - 20), 10, height - 44, BLANC);
+            texte(g, font, font.plainSubstrByWidth(message, LARGEUR), gauche, py + ph - 42, OR);
         }
-    }
-
-    @Override
-    public void onClose() {
-        minecraft.gui.setScreen(parent);
-    }
-
-    @Override
-    public boolean isPauseScreen() {
-        return false;
     }
 }

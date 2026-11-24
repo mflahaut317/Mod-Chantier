@@ -6,23 +6,20 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Réglages de l'hologramme, dans un panneau à gauche : le monde reste visible (pas de flou)
- * pour voir l'hologramme bouger pendant qu'on le règle.
+ * Réglages de l'hologramme dans un panneau clair à gauche : le reste de l'écran montre le monde,
+ * sans flou, pour voir l'hologramme bouger pendant qu'on le règle.
  */
-public class HoloScreen extends Screen {
-    private static final int X = 6;
+public class HoloScreen extends CadreScreen {
+    private static final int X = 8;
     private static final int L = 150;
     private static final int DEMI = 73;
-    private static final int GRIS = 0xFFAAAAAA;
-    private static final int OR = 0xFFFFD24A;
-    private static final int BLANC = 0xFFFFFFFF;
+    private static final int TIERS = 48;
 
-    private final Screen parent;
     private String message = "";
 
     public HoloScreen(Screen parent) {
-        super(Component.literal("Sur le terrain"));
-        this.parent = parent;
+        super("Sur le terrain", parent);
+        sansPanneau = true;
     }
 
     private Button bouton(String texte, int x, int y, int l, Runnable action) {
@@ -34,7 +31,7 @@ public class HoloScreen extends Screen {
 
     @Override
     protected void init() {
-        int y = 58;
+        int y = 54;
         if (Hologramme.plan == null) {
             if (Hologramme.dernierImporte != null) {
                 String nom = font.plainSubstrByWidth("Afficher « " + Hologramme.dernierImporte.getFileName() + " »", L - 8);
@@ -52,65 +49,62 @@ public class HoloScreen extends Screen {
         }
 
         bouton("Placer ici", X, y, L, Hologramme::placerIci);
-        y += 24;
-        bouton("Avancer", X, y, DEMI, () -> Hologramme.deplacer(1, 0, 0));
-        bouton("Reculer", X + L - DEMI, y, DEMI, () -> Hologramme.deplacer(-1, 0, 0));
         y += 22;
-        bouton("Gauche", X, y, DEMI, () -> Hologramme.deplacer(0, -1, 0));
-        bouton("Droite", X + L - DEMI, y, DEMI, () -> Hologramme.deplacer(0, 1, 0));
-        y += 22;
-        bouton("Monter", X, y, DEMI, () -> Hologramme.deplacer(0, 0, 1));
-        bouton("Descendre", X + L - DEMI, y, DEMI, () -> Hologramme.deplacer(0, 0, -1));
-        y += 24;
+        bouton("Avancer", X, y, TIERS, () -> Hologramme.deplacer(1, 0, 0));
+        bouton("Reculer", X + 51, y, TIERS, () -> Hologramme.deplacer(-1, 0, 0));
+        bouton("Monter", X + 102, y, TIERS, () -> Hologramme.deplacer(0, 0, 1));
+        y += 21;
+        bouton("Gauche", X, y, TIERS, () -> Hologramme.deplacer(0, -1, 0));
+        bouton("Droite", X + 51, y, TIERS, () -> Hologramme.deplacer(0, 1, 0));
+        bouton("Baisser", X + 102, y, TIERS, () -> Hologramme.deplacer(0, 0, -1));
+        y += 23;
         bouton("Tourner d'un quart", X, y, L, Hologramme::tourner);
-        y += 36; // place pour le texte « Couche »
+        y += 35; // place pour le texte « Couche »
         bouton("Couche -", X, y, DEMI, () -> Hologramme.changerCouche(-1));
         bouton("Couche +", X + L - DEMI, y, DEMI, () -> Hologramme.changerCouche(1));
-        y += 22;
+        y += 21;
         bouton("Toutes les couches", X, y, L, Hologramme::toutesLesCouches);
         y += 24;
         bouton(Hologramme.visible ? "Masquer" : "Afficher", X, y, DEMI, Hologramme::basculerVisible);
         bouton("Retirer", X + L - DEMI, y, DEMI, Hologramme::retirer);
-        y += 22;
+        y += 21;
         bouton("Autre schéma", X, y, DEMI, () -> minecraft.gui.setScreen(new SchemaScreen(this)));
         bouton("Fermer", X + L - DEMI, y, DEMI, this::onClose);
     }
 
-    /** Pas de fond flou : on doit voir l'hologramme derrière. */
+    /** Panneau clair à gauche seulement : le monde reste net derrière. */
     @Override
     public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
-        g.fill(0, 0, X + L + 6, height, 0x90000000);
+        panneau(g, 2, 2, L + 12, height - 4);
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
         super.extractRenderState(g, mouseX, mouseY, delta);
-        g.text(font, "Sur le terrain", X, 8, OR);
+        texte(g, font, "Sur le terrain", X, 9, TEXTE);
+        g.fill(X, 19, X + L, 20, CREUX);
         if (Hologramme.plan == null) {
-            g.text(font, "Aucun hologramme affiché.", X, 22, GRIS);
-            g.text(font, font.plainSubstrByWidth(message, L), X, 34, 0xFFFF7070);
+            texte(g, font, "Aucun hologramme affiché.", X, 26, DOUX);
+            texte(g, font, font.plainSubstrByWidth(message, L), X, 38, ROUGE);
             return;
         }
-        g.text(font, font.plainSubstrByWidth(Hologramme.nom, L), X, 22, BLANC);
+        texte(g, font, font.plainSubstrByWidth(Hologramme.nom, L), X, 24, TEXTE);
         String avancement = Hologramme.total == 0 ? "Posés : …"
                 : "Posés : " + Hologramme.poses + " / " + Hologramme.total
                 + " (" + (Hologramme.poses * 100 / Hologramme.total) + " %)";
-        g.text(font, avancement, X, 34, GRIS);
-        g.text(font, Hologramme.largeur() + " x " + Hologramme.plan.sy + " x " + Hologramme.profondeur()
-                + (Hologramme.plan.tronque ? " (trop grand, tronqué)" : ""), X, 45, GRIS);
+        texte(g, font, avancement, X, 35, Hologramme.total > 0 && Hologramme.poses == Hologramme.total ? VERT : DOUX);
+        texte(g, font, Hologramme.largeur() + " x " + Hologramme.plan.sy + " x " + Hologramme.profondeur()
+                + (Hologramme.plan.tronque ? " (tronqué)" : ""), X, 45, DOUX);
         String couche = Hologramme.couche < 0 ? "Couche : toutes"
                 : "Couche : " + (Hologramme.couche + 1) + " / " + Hologramme.plan.sy;
-        g.text(font, couche, X, 58 + 24 + 22 + 22 + 24 + 24 + 4, OR);
-        g.text(font, "Ferme pour marcher autour.", X, height - 12, GRIS);
-    }
+        texte(g, font, couche, X, 144, TEXTE);
 
-    @Override
-    public void onClose() {
-        minecraft.gui.setScreen(parent);
-    }
-
-    @Override
-    public boolean isPauseScreen() {
-        return false;
+        // Légende des couleurs
+        int y = height - 26;
+        carre(g, X, y, 0xFF9EC0E8);
+        texte(g, font, "à poser", X + 14, y + 2, TEXTE);
+        carre(g, X + 66, y, 0xFFE04040);
+        texte(g, font, "à changer", X + 80, y + 2, TEXTE);
+        texte(g, font, "Bien posé : plus rien affiché.", X, y + 13, DOUX);
     }
 }

@@ -14,15 +14,9 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 /** Liste complète des matériaux, défilable à la molette. Ouverte depuis l'écran Chantier. */
-public class ListeScreen extends Screen {
+public class ListeScreen extends CadreScreen {
     private static final int LARGEUR = 300;
     private static final int HAUTEUR_LIGNE = 18;
-    private static final int BLANC = 0xFFFFFFFF;
-    private static final int VERT = 0xFF55FF55;
-    private static final int GRIS = 0xFFAAAAAA;
-    private static final int OR = 0xFFFFD24A;
-
-    private final Screen parent;
     private int defilement = 0;
     /** false : liste du chantier ; true : matières premières à récolter. */
     private boolean modeRecolte = false;
@@ -36,22 +30,33 @@ public class ListeScreen extends Screen {
     }
 
     public ListeScreen(Screen parent) {
-        super(Component.literal("Liste complète"));
-        this.parent = parent;
+        super("Liste du chantier", parent);
     }
 
     @Override
     protected void init() {
-        haut = 40;
-        bas = height - 36;
+        cadre(LARGEUR + 24, 1000);
+        haut = py + 34;
+        bas = py + ph - 34;
+        EtatPayload etat = EtatRecu.get();
+        if (etat != null && !etat.titre().isEmpty()) setTitre(etat.titre());
         boutonListe = addRenderableWidget(Button.builder(Component.literal("Liste du chantier"), b -> changerMode(false))
-                .bounds(width / 2 - 125, 18, 120, 18).build());
+                .bounds(width / 2 - 125, py + 8, 120, 18).build());
         boutonRecolte = addRenderableWidget(Button.builder(Component.literal("À récolter"), b -> changerMode(true))
-                .bounds(width / 2 + 5, 18, 120, 18).build());
+                .bounds(width / 2 + 5, py + 8, 120, 18).build());
         boutonListe.active = modeRecolte;
         boutonRecolte.active = !modeRecolte;
         addRenderableWidget(Button.builder(Component.literal("Retour"), b -> onClose())
-                .bounds(width / 2 - 50, height - 28, 100, 20).build());
+                .bounds(width / 2 - 50, py + ph - 28, 100, 20).build());
+    }
+
+    private String titreChantier = "";
+
+    private void setTitre(String t) { titreChantier = t; }
+
+    @Override
+    protected String titre() {
+        return titreChantier.isEmpty() ? super.titre() : titreChantier;
     }
 
     private void changerMode(boolean recolte) {
@@ -103,15 +108,12 @@ public class ListeScreen extends Screen {
         int gauche = (width - LARGEUR) / 2;
 
         if (liste.isEmpty()) {
+            info = "";
             String vide = modeRecolte ? "Rien à récolter : tout est dans les coffres !" : "Aucun chantier en cours.";
-            g.text(font, vide, width / 2 - font.width(vide) / 2, height / 2, GRIS);
+            texte(g, font, vide, width / 2 - font.width(vide) / 2, haut + 20, DOUX);
             return;
         }
 
-        if (modeRecolte) {
-            String entete = "Matières premières encore à récolter (" + liste.size() + ")";
-            g.text(font, entete, width / 2 - font.width(entete) / 2, 6, OR);
-        }
         long total = 0, fait = 0;
         int finis = 0;
         for (Ligne l : liste) {
@@ -120,42 +122,40 @@ public class ListeScreen extends Screen {
             if (l.fini()) finis++;
         }
         int pourcent = total == 0 ? 0 : (int) (fait * 100 / total);
-        EtatPayload etat = EtatRecu.get();
-        String entete = (etat == null ? "Chantier" : etat.titre()) + " — " + pourcent + " % — "
-                + finis + "/" + liste.size() + " terminés";
-        if (!modeRecolte) g.text(font, entete, width / 2 - font.width(entete) / 2, 6, OR);
+        info = modeRecolte ? liste.size() + " matières à récolter" : pourcent + " % · " + finis + "/" + liste.size() + " terminés";
 
         int max = Math.max(0, liste.size() - lignesVisibles());
         defilement = Math.min(defilement, max);
         int y = haut;
+        creux(g, gauche - 5, haut - 3, LARGEUR + 10, bas - haut + 4, 0xFFB8B8B8);
         for (int i = defilement; i < liste.size() && y + HAUTEUR_LIGNE <= bas; i++) {
             Ligne l = liste.get(i);
-            g.fill(gauche - 4, y - 1, gauche + LARGEUR + 4, y + HAUTEUR_LIGNE - 1, (i % 2 == 0) ? 0x40000000 : 0x20000000);
+            if (i % 2 == 0) g.fill(gauche - 4, y - 1, gauche + LARGEUR + 4, y + HAUTEUR_LIGNE - 1, 0x18000000);
             g.item(l.stack(), gauche, y);
-            g.text(font, l.nom(), gauche + 20, y + 4, (!modeRecolte && l.fini()) ? VERT : BLANC);
             boolean vert = !modeRecolte && l.fini();
             String q = modeRecolte
                     ? ChantierClient.quantite(l.requis())
                     : l.fini()
                     ? ChantierClient.quantite(l.requis()) + " ✔"
                     : ChantierClient.quantite(l.possede()) + " / " + ChantierClient.quantite(l.requis());
-            g.text(font, q, gauche + LARGEUR - font.width(q), y + 4, vert ? VERT : (modeRecolte ? BLANC : GRIS));
+            int largeurQ = font.width(q);
+            // Petite barre d'avancement entre le nom et la quantité
+            if (!modeRecolte) {
+                int bx = gauche + LARGEUR - largeurQ - 50;
+                creux(g, bx, y + 5, 42, 6, 0xFF6A6A6A);
+                int rempli = (int) (40L * Math.min(l.requis(), l.possede()) / Math.max(1, l.requis()));
+                if (rempli > 0) g.fill(bx + 1, y + 6, bx + 1 + rempli, y + 10, vert ? 0xFF55C255 : 0xFFE0A020);
+            }
+            int place = LARGEUR - 20 - largeurQ - (modeRecolte ? 8 : 58);
+            texte(g, font, font.plainSubstrByWidth(l.nom(), place), gauche + 20, y + 4, vert ? VERT : TEXTE);
+            texte(g, font, q, gauche + LARGEUR - largeurQ, y + 4, vert ? VERT : TEXTE);
             y += HAUTEUR_LIGNE;
         }
         if (max > 0) {
-            String aide = "Molette pour défiler (" + (defilement + 1) + "–"
-                    + Math.min(liste.size(), defilement + lignesVisibles()) + " sur " + liste.size() + ")";
-            g.text(font, aide, width / 2 - font.width(aide) / 2, bas + 1, GRIS);
+            String aide = "Molette : " + (defilement + 1) + "–"
+                    + Math.min(liste.size(), defilement + lignesVisibles()) + " sur " + liste.size();
+            texte(g, font, aide, gauche, py + ph - 22, DOUX);
         }
     }
 
-    @Override
-    public void onClose() {
-        minecraft.gui.setScreen(parent);
-    }
-
-    @Override
-    public boolean isPauseScreen() {
-        return false;
-    }
 }
