@@ -13,6 +13,7 @@ import net.minecraft.resources.Identifier;
 public record ConfigPayload(String titre, String lien,
                             int materiaux, int pourcent, boolean masque,
                             int coffres, boolean selection,
+                            String membres, boolean dansChantier,
                             String message, boolean ouvrir) implements CustomPacketPayload {
 
     public static final Type<ConfigPayload> TYPE =
@@ -27,6 +28,8 @@ public record ConfigPayload(String titre, String lien,
                 ByteBufCodecs.BOOL.encode(buf, p.masque());
                 ByteBufCodecs.VAR_INT.encode(buf, p.coffres());
                 ByteBufCodecs.BOOL.encode(buf, p.selection());
+                ByteBufCodecs.STRING_UTF8.encode(buf, p.membres());
+                ByteBufCodecs.BOOL.encode(buf, p.dansChantier());
                 ByteBufCodecs.STRING_UTF8.encode(buf, p.message());
                 ByteBufCodecs.BOOL.encode(buf, p.ouvrir());
             },
@@ -37,6 +40,8 @@ public record ConfigPayload(String titre, String lien,
                     ByteBufCodecs.VAR_INT.decode(buf),
                     ByteBufCodecs.BOOL.decode(buf),
                     ByteBufCodecs.VAR_INT.decode(buf),
+                    ByteBufCodecs.BOOL.decode(buf),
+                    ByteBufCodecs.STRING_UTF8.decode(buf),
                     ByteBufCodecs.BOOL.decode(buf),
                     ByteBufCodecs.STRING_UTF8.decode(buf),
                     ByteBufCodecs.BOOL.decode(buf)));

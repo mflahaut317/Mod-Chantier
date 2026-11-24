@@ -3,9 +3,9 @@ package fr.maxence.chantier;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
-import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
@@ -16,11 +16,24 @@ public final class Actions {
     static void recevoir(ActionPayload action, IPayloadContext contexte) {
         if (!(contexte.player() instanceof ServerPlayer joueur)) return;
         MinecraftServer serveur = joueur.level().getServer();
-        Projet projet = Projet.get();
         String valeur = action.valeur().trim();
+        Projet projet = Chantiers.de(joueur.getUUID());
+
+        // Actions possibles sans chantier
+        switch (action.action()) {
+            case "config" -> { repondre(joueur, null, false); return; }
+            case "creer" -> {
+                if (projet != null) { repondre(joueur, "Tu es déjà dans un chantier.", false); return; }
+                Projet nouveau = Chantiers.creer(joueur, valeur);
+                nouveau.envoyerA(joueur);
+                repondre(joueur, "Chantier créé. Colle le lien de ta feuille et clique sur « Charger ».", false);
+                return;
+            }
+            default -> { }
+        }
+        if (projet == null) { repondre(joueur, "Crée d'abord un chantier.", false); return; }
 
         switch (action.action()) {
-            case "config" -> repondre(joueur, null, false);
             case "titre" -> {
                 if (valeur.isEmpty()) { repondre(joueur, "Écris un titre.", false); return; }
                 projet.definirTitre(valeur);
@@ -59,10 +72,38 @@ public final class Actions {
                 projet.diffuser(serveur);
                 repondre(joueur, "Sélection vidée.", false);
             }
-            case "arreter" -> {
-                projet.arreter();
+            case "ajouter" -> {
+                if (valeur.isEmpty()) { repondre(joueur, "Écris le pseudo du joueur à ajouter.", false); return; }
+                ServerPlayer cible = serveur.getPlayerList().getPlayerByName(valeur);
+                if (cible == null) { repondre(joueur, valeur + " est introuvable (il doit être connecté).", false); return; }
+                Projet autre = Chantiers.de(cible.getUUID());
+                if (autre == projet) { repondre(joueur, valeur + " est déjà dans ce chantier.", false); return; }
+                if (autre != null) {
+                    repondre(joueur, valeur + " est déjà dans un autre chantier : il doit d'abord le quitter.", false);
+                    return;
+                }
+                projet.ajouterMembre(cible);
+                projet.forcerEnvoi();
+                projet.recompter(serveur);
                 projet.diffuser(serveur);
-                repondre(joueur, "Chantier effacé.", false);
+                cible.sendSystemMessage(Component.literal("§e" + joueur.getGameProfile().name()
+                        + " t'a ajouté au chantier « " + projet.titre() + " »."));
+                repondre(joueur, valeur + " ajouté au chantier.", false);
+            }
+            case "quitter" -> {
+                projet.retirerMembre(joueur.getUUID());
+                Projet.envoyerBrut(joueur, Projet.VIDE);
+                if (projet.sansMembre()) Chantiers.supprimer(projet, serveur);
+                else {
+                    projet.forcerEnvoi();
+                    projet.recompter(serveur);
+                    projet.diffuser(serveur);
+                }
+                repondre(joueur, "Tu as quitté le chantier.", false);
+            }
+            case "arreter" -> {
+                Chantiers.supprimer(projet, serveur);
+                repondre(joueur, "Chantier supprimé.", false);
             }
             default -> { }
         }
@@ -71,17 +112,22 @@ public final class Actions {
     /** En mode sélection, un clic droit sur un conteneur l'ajoute ou le retire (sans l'ouvrir). */
     static void onClicDroit(PlayerInteractEvent.RightClickBlock event) {
         if (!(event.getEntity() instanceof ServerPlayer joueur)) return;
-        if (!Projet.get().enSelection(joueur.getUUID())) return;
+        Projet projet = Chantiers.de(joueur.getUUID());
+        if (projet == null || !projet.enSelection(joueur.getUUID())) return;
         if (event.getHand() != InteractionHand.MAIN_HAND) { event.setCanceled(true); return; }
         if (!(joueur.level() instanceof ServerLevel monde)) return;
         event.setCanceled(true);
-        String message = Projet.get().basculerCoffre(monde, event.getPos(), monde.getServer());
+        String message = projet.basculerCoffre(monde, event.getPos(), monde.getServer());
         joueur.sendSystemMessage(Component.literal(message));
     }
 
     /** Envoie les réglages à jour (et un message) au joueur, s'il a le mod. */
     static void repondre(ServerPlayer joueur, String message, boolean ouvrir) {
         if (!joueur.connection.hasChannel(ConfigPayload.TYPE)) return;
-        PacketDistributor.sendToPlayer(joueur, Projet.get().config(joueur.getUUID(), message, ouvrir));
+        Projet projet = Chantiers.de(joueur.getUUID());
+        ConfigPayload config = projet != null
+                ? projet.config(joueur.getUUID(), message, ouvrir)
+                : new ConfigPayload("", "", 0, 0, false, 0, false, "", false, message == null ? "" : message, ouvrir);
+        PacketDistributor.sendToPlayer(joueur, config);
     }
 }

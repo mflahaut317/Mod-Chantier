@@ -1,15 +1,10 @@
 package fr.maxence.chantier;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -36,31 +31,27 @@ import net.minecraft.world.Container;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.ItemContainerContents;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
-import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * État du chantier en cours (un seul à la fois), côté serveur.
- * Sauvegardé dans config/chantier.json.
+ * Un chantier (côté serveur) : sa liste, ses coffres, ses membres.
+ * Il y a un chantier par groupe ; tous sont gérés par {@link Chantiers} et sauvegardés dans config/chantier.json.
  */
 public final class Projet {
-    private static final Projet INSTANCE = new Projet();
-    public static Projet get() { return INSTANCE; }
-
-
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .followRedirects(HttpClient.Redirect.NORMAL)
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
     /** Ce qui est écrit sur disque. */
-    private static final class Sauvegarde {
+    static final class Sauvegarde {
+        String id = UUID.randomUUID().toString();
+        /** Membres : UUID -> pseudo (pour l'affichage). */
+        Map<String, String> membres = new LinkedHashMap<>();
         String titre = "Chantier";
         String lien = null;
         List<String> masques = new ArrayList<>();
@@ -74,7 +65,7 @@ public final class Projet {
     /** Joueurs en mode « choisir les coffres » (non sauvegardé). */
     private final Set<UUID> enSelection = new HashSet<>();
 
-    private Sauvegarde donnees = new Sauvegarde();
+    private Sauvegarde donnees;
     /** Besoins dans l'ordre de la feuille : item -> quantité demandée. */
     private final Map<Item, Integer> besoins = new LinkedHashMap<>();
     /** Dernier comptage total (coffres choisis + inventaires des joueurs connectés). */
@@ -83,7 +74,55 @@ public final class Projet {
     private final Map<Item, Integer> stockCoffres = new HashMap<>();
     private final Set<UUID> masques = new HashSet<>();
 
-    private Projet() {}
+    Projet(Sauvegarde donnees) {
+        this.donnees = donnees;
+        if (donnees.membres == null) donnees.membres = new LinkedHashMap<>();
+        if (donnees.masques == null) donnees.masques = new ArrayList<>();
+        if (donnees.coffres == null) donnees.coffres = new ArrayList<>();
+        for (String m : donnees.masques) masques.add(UUID.fromString(m));
+    }
+
+    Sauvegarde donnees() { return donnees; }
+
+    private void sauver() { Chantiers.sauver(); }
+
+    // ---------------------------------------------------------------- membres
+
+    public boolean estMembre(UUID joueur) { return donnees.membres.containsKey(joueur.toString()); }
+
+    public void ajouterMembre(ServerPlayer joueur) {
+        donnees.membres.put(joueur.getUUID().toString(), joueur.getGameProfile().name());
+        sauver();
+    }
+
+    /** Met à jour le pseudo affiché si le joueur en a changé. */
+    public void noterPseudo(ServerPlayer joueur) {
+        String id = joueur.getUUID().toString();
+        String pseudo = joueur.getGameProfile().name();
+        if (donnees.membres.containsKey(id) && !pseudo.equals(donnees.membres.get(id))) {
+            donnees.membres.put(id, pseudo);
+            sauver();
+        }
+    }
+
+    public void retirerMembre(UUID joueur) {
+        donnees.membres.remove(joueur.toString());
+        masques.remove(joueur);
+        enSelection.remove(joueur);
+        donnees.masques = masques.stream().map(UUID::toString).toList();
+        sauver();
+    }
+
+    public boolean sansMembre() { return donnees.membres.isEmpty(); }
+
+    public String nomsMembres() { return String.join(", ", donnees.membres.values()); }
+
+    /** Membres actuellement connectés. */
+    public List<ServerPlayer> membresEnLigne(MinecraftServer serveur) {
+        List<ServerPlayer> liste = new ArrayList<>();
+        for (ServerPlayer j : serveur.getPlayerList().getPlayers()) if (estMembre(j.getUUID())) liste.add(j);
+        return liste;
+    }
 
     // ------------------------------------------------------------------ état
 
@@ -160,18 +199,12 @@ public final class Projet {
                 donnees.lien == null ? "" : donnees.lien,
                 besoins.size(), pourcentage(), masques.contains(joueur),
                 nombreCoffres(), enSelection.contains(joueur),
+                nomsMembres(), true,
                 message != null ? message
                         : donnees.termine ? "Chantier terminé ✔ — charge une nouvelle liste pour recommencer." : "",
                 ouvrir);
     }
 
-    public void arreter() {
-        donnees = new Sauvegarde();
-        besoins.clear();
-        stock.clear();
-        masques.clear();
-        sauver();
-    }
 
     public void masquer(UUID joueur, boolean masque) {
         if (masque) masques.add(joueur); else masques.remove(joueur);
@@ -421,8 +454,8 @@ public final class Projet {
         if (aDesCoffres()) recompterCoffres(serveur); else stockCoffres.clear();
         stock.clear();
         stock.putAll(stockCoffres);
-        // + ce que les joueurs connectés ont sur eux (shulkers comprises)
-        for (ServerPlayer joueur : serveur.getPlayerList().getPlayers()) {
+        // + ce que les membres connectés ont sur eux (shulkers comprises)
+        for (ServerPlayer joueur : membresEnLigne(serveur)) {
             Container inventaire = joueur.getInventory();
             for (int i = 0; i < inventaire.getContainerSize(); i++) ajouter(stock, inventaire.getItem(i));
         }
@@ -454,8 +487,9 @@ public final class Projet {
         if (donnees.termine || besoins.isEmpty() || pourcentage() < 100) return;
         donnees.termine = true;
         sauver();
-        serveur.getPlayerList().broadcastSystemMessage(Component.literal(
-                "§a✔ Chantier « " + donnees.titre + " » terminé : toutes les ressources sont réunies !"), false);
+        Component message = Component.literal(
+                "§a✔ Chantier « " + donnees.titre + " » terminé : toutes les ressources sont réunies !");
+        for (ServerPlayer j : membresEnLigne(serveur)) j.sendSystemMessage(message);
         diffuser(serveur);
     }
 
@@ -496,12 +530,19 @@ public final class Projet {
         return new EtatPayload(donnees.titre, lignes, aRecolter);
     }
 
-    private static final EtatPayload VIDE = new EtatPayload("", List.of(), List.of());
+    static final EtatPayload VIDE = new EtatPayload("", List.of(), List.of());
+
+    /** Dernier état envoyé (titre + lignes) : on ne renvoie rien tant que rien n'a changé. */
+    private String derniereCle = null;
 
     /** Dernier calcul des matières premières à récolter (voir Recettes). */
     private Map<Item, Integer> recolte = new LinkedHashMap<>();
 
+    /** Envoie l'état aux membres connectés, seulement s'il a changé depuis le dernier envoi. */
     public void diffuser(MinecraftServer serveur) {
+        String cle = estActif() ? donnees.titre + "|" + besoins + "|" + stock : "vide";
+        if (cle.equals(derniereCle)) return;
+        derniereCle = cle;
         if (estActif()) {
             try {
                 recolte = Recettes.aRecolter(serveur, besoins, stock);
@@ -511,7 +552,7 @@ public final class Projet {
             }
         }
         EtatPayload plein = estActif() ? etat() : VIDE;
-        for (ServerPlayer joueur : serveur.getPlayerList().getPlayers()) {
+        for (ServerPlayer joueur : membresEnLigne(serveur)) {
             envoyer(joueur, plein);
         }
     }
@@ -521,35 +562,16 @@ public final class Projet {
     }
 
     private void envoyer(ServerPlayer joueur, EtatPayload etat) {
-        // Les joueurs sans le mod côté client sont ignorés (ils peuvent quand même jouer).
+        envoyerBrut(joueur, masques.contains(joueur.getUUID()) ? VIDE : etat);
+    }
+
+    /** Les joueurs sans le mod côté client sont ignorés (ils peuvent quand même jouer). */
+    static void envoyerBrut(ServerPlayer joueur, EtatPayload etat) {
         if (!joueur.connection.hasChannel(EtatPayload.TYPE)) return;
-        PacketDistributor.sendToPlayer(joueur, masques.contains(joueur.getUUID()) ? VIDE : etat);
+        PacketDistributor.sendToPlayer(joueur, etat);
     }
 
-    // ----------------------------------------------------------- sauvegarde
+    /** Force le prochain envoi (ex. changement de titre). */
+    public void forcerEnvoi() { derniereCle = null; }
 
-    private static Path fichier() { return FMLPaths.CONFIGDIR.get().resolve("chantier.json"); }
-
-    public void charger() {
-        Path f = fichier();
-        if (!Files.exists(f)) return;
-        try {
-            Sauvegarde lu = GSON.fromJson(Files.readString(f, StandardCharsets.UTF_8), Sauvegarde.class);
-            if (lu != null) donnees = lu;
-            if (donnees.masques == null) donnees.masques = new ArrayList<>();
-            if (donnees.coffres == null) donnees.coffres = new ArrayList<>();
-            masques.clear();
-            for (String s : donnees.masques) masques.add(UUID.fromString(s));
-        } catch (IOException | RuntimeException e) {
-            Chantier.LOGGER.error("[Chantier] Lecture de chantier.json impossible", e);
-        }
-    }
-
-    private void sauver() {
-        try {
-            Files.writeString(fichier(), GSON.toJson(donnees), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            Chantier.LOGGER.error("[Chantier] Écriture de chantier.json impossible", e);
-        }
-    }
 }

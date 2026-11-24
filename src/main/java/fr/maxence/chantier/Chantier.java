@@ -41,26 +41,18 @@ public class Chantier {
     }
 
     private static void onServeurDemarre(ServerStartedEvent event) {
-        Projet projet = Projet.get();
-        projet.charger();
-        if (projet.aUnLien()) {
-            projet.telechargerListe(event.getServer(), null);
-        }
+        Chantiers.charger(event.getServer());
     }
 
     private static void onTick(ServerTickEvent.Post event) {
         if (++compteurTicks < INTERVALLE_TICKS) return;
         compteurTicks = 0;
-        Projet projet = Projet.get();
-        if (projet.estActif()) {
-            projet.recompter(event.getServer());
-            projet.diffuser(event.getServer());
-        }
+        Chantiers.tick(event.getServer());
     }
 
     private static void onConnexion(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer joueur) {
-            Projet.get().envoyerA(joueur);
+            Chantiers.onConnexion(joueur);
         }
     }
 }
