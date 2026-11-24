@@ -30,6 +30,8 @@ public class ChantierScreen extends Screen {
     private ConfigPayload dernierAffiche = null;
     /** Mode affiché : null = pas encore de réponse du serveur. */
     private Boolean modeChantier = null;
+    /** Message affiché après un glisser-déposer (remplacé par la réponse du serveur). */
+    private String messageLocal = "";
 
     private int gauche;
     private int haut;
@@ -158,6 +160,7 @@ public class ChantierScreen extends Screen {
         ConfigPayload c = ConfigRecue.get();
         if (c == null || c == dernierAffiche) return;
         dernierAffiche = c;
+        messageLocal = "";
         if (!modeChantier) return;
         if (!champTitre.isFocused()) champTitre.setValue(c.titre());
         if (champLien != null && !champLien.isFocused()) champLien.setValue(c.lien());
@@ -214,8 +217,16 @@ public class ChantierScreen extends Screen {
     }
 
     private void afficherMessage(GuiGraphicsExtractor g, ConfigPayload c, int y) {
-        if (c == null || c.message().isEmpty()) return;
-        g.text(font, font.plainSubstrByWidth(c.message(), LARGEUR), gauche, y, BLANC);
+        String texte = !messageLocal.isEmpty() ? messageLocal : c == null ? "" : c.message();
+        if (texte.isEmpty()) return;
+        g.text(font, font.plainSubstrByWidth(texte, LARGEUR), gauche, y, BLANC);
+    }
+
+    /** Glisser un .litematic sur l'écran Chantier l'importe directement. */
+    @Override
+    public void onFilesDrop(java.util.List<java.nio.file.Path> fichiers) {
+        if (!modeChantier) return;
+        messageLocal = SchemaScreen.deposer(fichiers);
     }
 
     @Override

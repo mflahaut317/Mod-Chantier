@@ -77,19 +77,52 @@ public class SchemaScreen extends Screen {
     }
 
     private void importer(Path fichier) {
+        String erreur = envoyer(fichier);
+        if (erreur == null) onClose(); else message = erreur;
+    }
+
+    /** Lit le schéma et envoie sa liste au serveur. @return null si tout va bien, sinon le message d'erreur */
+    static String envoyer(Path fichier) {
         try {
             Map<Item, Integer> blocs = LecteurLitematic.lire(fichier);
-            if (blocs.isEmpty()) { message = "Ce schéma ne contient aucun bloc."; return; }
+            if (blocs.isEmpty()) return "Ce schéma ne contient aucun bloc.";
             List<EtatPayload.Ligne> lignes = new ArrayList<>();
             for (Map.Entry<Item, Integer> e : blocs.entrySet()) {
                 lignes.add(new EtatPayload.Ligne(BuiltInRegistries.ITEM.getKey(e.getKey()).toString(), e.getValue(), 0));
             }
             String nom = fichier.getFileName().toString().replaceAll("(?i)\\.litematic$", "");
             ClientPacketDistributor.sendToServer(new ImportPayload(nom, lignes));
-            onClose();
+            return null;
         } catch (IOException | RuntimeException e) {
-            message = "Lecture impossible : " + e.getMessage();
+            return "Lecture impossible : " + e.getMessage();
         }
+    }
+
+    /**
+     * Fichiers glissés dans la fenêtre : le premier .litematic est copié dans « schematics » (pour la galerie)
+     * puis importé. @return message pour le joueur
+     */
+    static String deposer(List<Path> fichiers) {
+        for (Path f : fichiers) {
+            if (!f.getFileName().toString().toLowerCase().endsWith(".litematic")) continue;
+            try {
+                Path dossier = FMLPaths.GAMEDIR.get().resolve("schematics");
+                Files.createDirectories(dossier);
+                Path copie = dossier.resolve(f.getFileName().toString());
+                if (!Files.exists(copie)) Files.copy(f, copie);
+            } catch (IOException | RuntimeException ignored) {
+                // Copie impossible : on importe quand même depuis l'original.
+            }
+            String erreur = envoyer(f);
+            return erreur == null ? "Schéma « " + f.getFileName() + " » envoyé au chantier." : erreur;
+        }
+        return "Glisse un fichier .litematic.";
+    }
+
+    @Override
+    public void onFilesDrop(List<Path> fichiers) {
+        message = deposer(fichiers);
+        rebuildWidgets();
     }
 
     @Override
@@ -106,7 +139,7 @@ public class SchemaScreen extends Screen {
         super.extractRenderState(g, mouseX, mouseY, delta);
         String titre = "Importer un schéma (" + fichiers.size() + ")";
         g.text(font, titre, width / 2 - font.width(titre) / 2, 10, OR);
-        String aide = "Dossier : .minecraft/schematics — clique sur un schéma pour en faire la liste du chantier";
+        String aide = "Clique sur un schéma, ou glisse un fichier .litematic dans la fenêtre";
         g.text(font, font.plainSubstrByWidth(aide, width - 20), width / 2 - Math.min(font.width(aide), width - 20) / 2, 22, GRIS);
         if (fichiers.isEmpty()) {
             String vide = "Aucun fichier .litematic trouvé.";
