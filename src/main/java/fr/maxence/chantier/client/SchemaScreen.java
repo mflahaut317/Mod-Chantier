@@ -72,7 +72,7 @@ public class SchemaScreen extends CadreScreen {
                     .bounds(gauche, y, LARGEUR - 130, 20).build());
             addRenderableWidget(Button.builder(Component.literal("Terrain"), b -> {
                 String erreur = Hologramme.charger(f);
-                if (erreur == null) minecraft.gui.setScreen(new HoloScreen(this)); else message = erreur;
+                if (erreur == null) minecraft.gui.setScreen(null); else message = erreur; // on le place en visant
             }).bounds(gauche + LARGEUR - 126, y, 56, 20).build());
             addRenderableWidget(Button.builder(Component.literal("Partager"), b -> partager(f))
                     .bounds(gauche + LARGEUR - 66, y, 66, 20).build());

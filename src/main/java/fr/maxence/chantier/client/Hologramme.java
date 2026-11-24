@@ -40,6 +40,9 @@ final class Hologramme {
     /** Dernier schéma importé dans le chantier (pour proposer de l'afficher). */
     static Path dernierImporte;
 
+    /** Mode « en visant » : l'hologramme suit le viseur jusqu'au clic droit. */
+    static boolean suivre;
+
     private static boolean restaure;
     private static int compteur;
 
@@ -61,7 +64,7 @@ final class Hologramme {
             poses = 0;
             total = 0;
             compteur = 19; // statistiques dès le prochain tick
-            sauver();
+            suivre = true;  // il apparaît devant le joueur et suit son viseur
             return null;
         } catch (IOException | RuntimeException e) {
             return "Lecture impossible : " + e.getMessage();
@@ -69,6 +72,7 @@ final class Hologramme {
     }
 
     static void retirer() {
+        suivre = false;
         plan = null;
         fichier = null;
         try { Files.deleteIfExists(fichierReglages()); } catch (IOException ignored) { }
@@ -92,6 +96,32 @@ final class Hologramme {
     }
 
     // ---------- Réglages ----------
+
+    /** Commence le placement en visant (l'hologramme suit le viseur). */
+    static void commencerSuivi() {
+        if (plan == null) return;
+        suivre = true;
+        visible = true;
+    }
+
+    /** Clic droit pendant le suivi : l'hologramme reste là. */
+    static void poser() {
+        suivre = false;
+        apresChangement();
+    }
+
+    /** Pendant le suivi : centre l'hologramme sur le bloc visé (jusqu'à 64 blocs), posé dessus. */
+    private static void suivreViseur(Minecraft mc) {
+        net.minecraft.world.phys.HitResult vise = mc.player.pick(64, 1f, false);
+        BlockPos cible;
+        if (vise instanceof net.minecraft.world.phys.BlockHitResult bloc && vise.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
+            cible = bloc.getBlockPos().relative(bloc.getDirection());
+        } else {
+            cible = BlockPos.containing(mc.player.getEyePosition().add(mc.player.getLookAngle().scale(12)));
+        }
+        origine = new BlockPos(cible.getX() - largeur() / 2, cible.getY(), cible.getZ() - profondeur() / 2);
+        dimension = mc.level.dimension().identifier().toString();
+    }
 
     static void placerIci() {
         Minecraft mc = Minecraft.getInstance();
@@ -143,6 +173,7 @@ final class Hologramme {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null) return;
         if (!restaure) { restaure = true; restaurer(); }
+        if (plan != null && suivre) suivreViseur(mc);
         if (plan == null || origine == null || !visible) return;
         if (!mc.level.dimension().identifier().toString().equals(dimension)) return;
 

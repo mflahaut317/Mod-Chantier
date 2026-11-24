@@ -62,6 +62,17 @@ public class ChantierClient {
         event.register(COUCHE_BAS);
     }
 
+    /** Pendant le placement en visant : clic droit pose l'hologramme, clic gauche le tourne. */
+    @SubscribeEvent
+    static void onClic(net.neoforged.neoforge.client.event.InputEvent.InteractionKeyMappingTriggered event) {
+        if (!Hologramme.suivre) return;
+        if (event.isUseItem()) Hologramme.poser();
+        else if (event.isAttack()) Hologramme.tourner();
+        else return;
+        event.setCanceled(true);
+        event.setSwingHand(false);
+    }
+
     @SubscribeEvent
     static void onTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
@@ -93,6 +104,13 @@ public class ChantierClient {
 
     static void dessiner(GuiGraphicsExtractor g, DeltaTracker delta) {
         Minecraft mc = Minecraft.getInstance();
+        if (Hologramme.suivre && mc.player != null) {
+            String aide = "Clic droit : poser ici · Clic gauche : tourner";
+            int l = mc.getWindow().getGuiScaledWidth(), h = mc.getWindow().getGuiScaledHeight();
+            int x = l / 2 - mc.font.width(aide) / 2, y = h / 2 + 16;
+            g.fill(x - 4, y - 3, x + mc.font.width(aide) + 4, y + 11, 0xA0000000);
+            g.text(mc.font, aide, x, y, 0xFFFFD24A);
+        }
         EtatPayload etat = EtatRecu.get();
         if (etat == null || mc.player == null) return;
         Font font = mc.font;

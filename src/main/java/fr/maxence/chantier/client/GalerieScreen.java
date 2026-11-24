@@ -48,7 +48,7 @@ public class GalerieScreen extends CadreScreen {
         CarteBouton(Button.Builder b) { super(b); }
 
         @Override
-        protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+        protected void extractContents(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
             if (isHovered) {
                 int x = getX(), y = getY(), l = getWidth(), h = getHeight();
                 g.fill(x, y, x + l, y + 1, 0xFFFFFFFF);

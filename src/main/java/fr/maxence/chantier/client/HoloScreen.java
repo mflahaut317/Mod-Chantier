@@ -38,6 +38,7 @@ public class HoloScreen extends CadreScreen {
                 bouton(nom, X, y, L, () -> {
                     String erreur = Hologramme.charger(Hologramme.dernierImporte);
                     message = erreur == null ? "" : erreur;
+                    if (erreur == null) minecraft.gui.setScreen(null); // on le place en visant
                 });
                 y += 24;
             }
@@ -48,7 +49,10 @@ public class HoloScreen extends CadreScreen {
             return;
         }
 
-        bouton("Placer ici", X, y, L, Hologramme::placerIci);
+        bouton("Déplacer en visant", X, y, L, () -> {
+            Hologramme.commencerSuivi();
+            minecraft.gui.setScreen(null);
+        });
         y += 22;
         bouton("Avancer", X, y, TIERS, () -> Hologramme.deplacer(1, 0, 0));
         bouton("Reculer", X + 51, y, TIERS, () -> Hologramme.deplacer(-1, 0, 0));
