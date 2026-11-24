@@ -161,6 +161,8 @@ public class GalerieScreen extends CadreScreen {
                 int k = i - premier;
                 int x = grilleGauche() + (k % c) * (CARTE_L + ECART);
                 int y = py + 12 + (k / c) * (CARTE_H + ECART);
+                addRenderableWidget(Button.builder(Component.literal("Voir"), b -> ouvrir(id))
+                        .bounds(x + CARTE_L - 46, y + CARTE_H - 24, 42, 20).build());
                 addRenderableWidget(Button.builder(Component.literal(liste.get(i).nom()), b -> ouvrir(id))
                         .bounds(x, y, CARTE_L, CARTE_H).build(CarteBouton::new));
             }
@@ -209,12 +211,12 @@ public class GalerieScreen extends CadreScreen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClic) {
-        if (super.mouseClicked(event, doubleClic)) return true;
+        // La carte d'abord : un clic n'importe où dessus ouvre la fiche
         if (detailId == null && event.button() == 0) {
             int i = carteSous(event.x(), event.y());
             if (i >= 0) { ouvrir(entrees().get(i).id()); return true; }
         }
-        return false;
+        return super.mouseClicked(event, doubleClic);
     }
 
     @Override

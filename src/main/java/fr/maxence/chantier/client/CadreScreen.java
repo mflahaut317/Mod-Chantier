@@ -25,6 +25,10 @@ public abstract class CadreScreen extends Screen {
     static final int ROUGE = 0xFFB02020;
     static final int SURVOL = 0xFFB0B0B0;
 
+    /** Version installée, affichée en haut à gauche (pour savoir si la mise à jour est passée). */
+    static final String VERSION = net.neoforged.fml.ModList.get().getModContainerById(fr.maxence.chantier.Chantier.MODID)
+            .map(c -> c.getModInfo().getVersion().toString()).orElse("?");
+
     protected final Screen parent;
     protected int px, py, pw, ph;
     /** Info en haut à droite (ex. « Étape 2 sur 7 »). */
@@ -74,7 +78,7 @@ public abstract class CadreScreen extends Screen {
         g.text(font, titre, -font.width(titre) / 2, 0, 0xFFFFFFFF);
         g.pose().popMatrix();
         int ligne = y + 16;
-        g.text(font, "Chantier", px, ligne, 0xFFAAAAAA);
+        g.text(font, "Chantier " + VERSION, px, ligne, 0xFFAAAAAA);
         if (!info.isEmpty()) g.text(font, info, px + pw - font.width(info), ligne, 0xFFAAAAAA);
         if (etapes > 0) {
             int total = etapes * 7 + 6;
