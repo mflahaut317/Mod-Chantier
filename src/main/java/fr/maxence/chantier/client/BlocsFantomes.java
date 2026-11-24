@@ -3,7 +3,6 @@ package fr.maxence.chantier.client;
 import com.mojang.math.Transformation;
 import java.lang.reflect.Method;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import net.minecraft.client.Minecraft;

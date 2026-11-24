@@ -42,6 +42,14 @@ public class GalerieScreen extends CadreScreen {
     private int rotation = 0;
     /** Scènes 3D des fiches déjà construites (id + rotation). */
     private final Map<String, Scene> scenes = new HashMap<>();
+    /** Les scènes 3D transformées en images (calculées une fois). */
+    private final ApercuGalerie apercus = new ApercuGalerie();
+
+    @Override
+    public void removed() {
+        super.removed();
+        apercus.liberer();
+    }
 
     /** Bouton invisible qui couvre toute une carte : un clic n'importe où sur la carte ouvre la fiche. */
     private static final class CarteBouton extends Button {
@@ -269,13 +277,8 @@ public class GalerieScreen extends CadreScreen {
             if (dessus) cadreCouleur(g, x, y, CARTE_L, CARTE_H, 0xFFFFFFFF);
 
             ciel(g, x + 4, y + 4, 72);
-            Scene vignette = scene(e, 0);
-            if (vignette != null) {
-                g.enableScissor(x + 4, y + 4, x + 76, y + 76);
-                vignette.dessinerCentre(g, x + 4, y + 4, 72, 72, 8);
-                g.disableScissor();
-            } else {
-                dessinerImage(g, e, x + 4, y + 4, 72);
+            if (!apercus.dessiner(g, e.id() + "#0", scene(e, 0), x + 4, y + 4, 72, 72)) {
+                dessinerImage(g, e, x + 4, y + 4, 72); // ancien partage sans les blocs : image simple
             }
 
             int tx = x + 82, tl = CARTE_L - 86;
@@ -326,12 +329,8 @@ public class GalerieScreen extends CadreScreen {
 
         int haut = ficheHaut(e), cote = coteApercu(e);
         ciel(g, x, haut, cote);
-        Scene scene = scene(e);
-        if (scene != null) {
-            g.enableScissor(x, haut, x + cote, haut + cote);
-            scene.dessinerCentre(g, x, haut + 2, cote, cote - 22, 14);
-            g.disableScissor();
-        } else if (!dessinerImage(g, e, x, haut, cote)) {
+        if (!apercus.dessiner(g, e.id() + "#" + rotation, scene(e), x, haut + 2, cote, cote - 22)
+                && !dessinerImage(g, e, x, haut, cote)) {
             texte(g, font, "(pas d'aperçu)", x + 4, haut + 4, TEXTE);
         }
 

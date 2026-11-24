@@ -240,4 +240,107 @@ final class Scene {
         int r = (int) (((rgb >> 16) & 255) * f), v = (int) (((rgb >> 8) & 255) * f), b = (int) ((rgb & 255) * f);
         return (r << 16) | (v << 8) | b;
     }
+
+    // ---------- Rendu en image (une seule fois), pour la galerie ----------
+
+    /** Image ARGB de la scène. */
+    record Image(int largeur, int hauteur, int[] pixels) {}
+
+    private static final java.util.Map<Identifier, int[]> PIXELS = new java.util.HashMap<>();
+
+    /** Les 16 x 16 pixels d'une texture de bloc (première image si elle est animée), ou null. */
+    private static int[] pixels(Identifier id) {
+        return PIXELS.computeIfAbsent(id, k -> {
+            var res = net.minecraft.client.Minecraft.getInstance().getResourceManager().getResource(k);
+            if (res.isEmpty()) return null;
+            try (java.io.InputStream in = res.get().open();
+                 com.mojang.blaze3d.platform.NativeImage img = com.mojang.blaze3d.platform.NativeImage.read(in)) {
+                int cote = img.getWidth();
+                int[] p = new int[256];
+                for (int v = 0; v < 16; v++) for (int u = 0; u < 16; u++) p[u + v * 16] = img.getPixel(u * cote / 16, v * cote / 16);
+                return p;
+            } catch (java.io.IOException | RuntimeException e) {
+                return null;
+            }
+        });
+    }
+
+    /**
+     * Dessine toute la scène dans une image d'au plus « taille » pixels de côté (rendu logiciel) :
+     * calculée une fois, puis affichée comme une simple image, quel que soit le nombre de blocs.
+     */
+    Image rendre(int taille) {
+        if (cubes.isEmpty()) return null;
+        float minX = Float.MAX_VALUE, maxX = -Float.MAX_VALUE, minY = Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
+        for (Cube c : cubes) {
+            float sx = ex(0, 1, c), sy = ey(0, 1, c);
+            minX = Math.min(minX, sx - 1); maxX = Math.max(maxX, sx + 1);
+            minY = Math.min(minY, sy); maxY = Math.max(maxY, sy + 2);
+        }
+        float a = Math.min(8f, (taille - 2) / Math.max(maxX - minX, maxY - minY));
+        int w = (int) Math.ceil((maxX - minX) * a) + 2, h = (int) Math.ceil((maxY - minY) * a) + 2;
+        int[] img = new int[w * h];
+        float ox = -minX * a + 1, oy = -minY * a + 1;
+        if (tries == null || tries.size() != cubes.size()) {
+            tries = new ArrayList<>(cubes);
+            tries.sort(Comparator.comparingInt((Cube c) -> c.x() + c.z()).thenComparingInt(Cube::y));
+        }
+        float k = a / 16f;
+        for (Cube c : tries) {
+            float sx = ex(ox, a, c), sy = ey(oy, a, c);
+            remplir(img, w, h, c, c.cote(), sx - a, sy + a / 2, k, k / 2, 0, k, 0.72f);
+            remplir(img, w, h, c, c.cote(), sx, sy + a, k, -k / 2, 0, k, 0.55f);
+            remplir(img, w, h, c, c.dessus(), sx, sy, k, k / 2, -k, k / 2, 1.0f);
+        }
+        return new Image(w, h, img);
+    }
+
+    /** Remplit une face : origine (x0, y0), axes U (ux, uy) et V (vx, vy) pour une unité de texture. */
+    private static void remplir(int[] img, int w, int h, Cube c, Identifier texture, float x0, float y0,
+                                float ux, float uy, float vx, float vy, float lumiere) {
+        float det = ux * vy - vx * uy;
+        if (Math.abs(det) < 1e-6f) return;
+        float[] xs = {x0, x0 + 16 * ux, x0 + 16 * vx, x0 + 16 * (ux + vx)};
+        float[] ys = {y0, y0 + 16 * uy, y0 + 16 * vy, y0 + 16 * (uy + vy)};
+        int ax = (int) Math.floor(Math.min(Math.min(xs[0], xs[1]), Math.min(xs[2], xs[3])));
+        int bx = (int) Math.ceil(Math.max(Math.max(xs[0], xs[1]), Math.max(xs[2], xs[3])));
+        int ay = (int) Math.floor(Math.min(Math.min(ys[0], ys[1]), Math.min(ys[2], ys[3])));
+        int by = (int) Math.ceil(Math.max(Math.max(ys[0], ys[1]), Math.max(ys[2], ys[3])));
+        int[] tex = texture == null ? null : pixels(texture);
+        int teinte = texture == HERBE_COTE ? 0xFFFFFFFF : c.teinte();
+        for (int py = Math.max(0, ay); py < Math.min(h, by); py++) {
+            for (int px = Math.max(0, ax); px < Math.min(w, bx); px++) {
+                float dx = px + 0.5f - x0, dy = py + 0.5f - y0;
+                float u = (dx * vy - vx * dy) / det, v = (ux * dy - dx * uy) / det;
+                if (u < 0 || v < 0 || u >= 16 || v >= 16) continue;
+                int couleur;
+                if (tex != null) {
+                    couleur = tex[(int) u + (int) v * 16];
+                    if ((couleur >>> 24) < 128) continue; // pixel transparent (verre, feuilles)
+                    couleur = multiplier(couleur, teinte);
+                } else {
+                    couleur = texture == null ? c.couleur() : 0xFFFF00FF;
+                }
+                if (c.contour() != 0 && (u < 1 || v < 1 || u >= 15 || v >= 15)) couleur = c.contour();
+                couleur = 0xFF000000 | ombre(couleur, lumiere);
+                int i = px + py * w;
+                img[i] = c.alpha() >= 255 ? couleur : melanger(img[i], couleur, c.alpha());
+            }
+        }
+    }
+
+    private static int multiplier(int a, int b) {
+        int r = ((a >> 16) & 255) * ((b >> 16) & 255) / 255;
+        int v = ((a >> 8) & 255) * ((b >> 8) & 255) / 255;
+        int bl = (a & 255) * (b & 255) / 255;
+        return 0xFF000000 | (r << 16) | (v << 8) | bl;
+    }
+
+    private static int melanger(int fond, int c, int alpha) {
+        if ((fond >>> 24) == 0) return (alpha << 24) | (c & 0xFFFFFF);
+        int r = (((c >> 16) & 255) * alpha + ((fond >> 16) & 255) * (255 - alpha)) / 255;
+        int v = (((c >> 8) & 255) * alpha + ((fond >> 8) & 255) * (255 - alpha)) / 255;
+        int b = ((c & 255) * alpha + (fond & 255) * (255 - alpha)) / 255;
+        return 0xFF000000 | (r << 16) | (v << 8) | b;
+    }
 }

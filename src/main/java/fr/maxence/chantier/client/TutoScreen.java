@@ -61,9 +61,9 @@ public class TutoScreen extends CadreScreen {
                         Ligne.de(Items.STRUCTURE_BLOCK, "« Tourner d'un quart » pour l'orienter."),
                         Ligne.de(Items.RECOVERY_COMPASS, "L'hologramme reste là, même après déconnexion."))),
                 new Etape("Les touches", Items.OAK_SIGN, List.of(
-                        Ligne.touche(ChantierClient.OUVRIR, "Ouvrir Chantier."),
-                        Ligne.touche(ChantierClient.COUCHE_HAUT, "Hologramme : couche au-dessus."),
-                        Ligne.touche(ChantierClient.COUCHE_BAS, "Hologramme : couche en dessous."),
+                        Ligne.touche(Touches.OUVRIR, "Ouvrir Chantier."),
+                        Ligne.touche(Touches.COUCHE_HAUT, "Hologramme : couche au-dessus."),
+                        Ligne.touche(Touches.COUCHE_BAS, "Hologramme : couche en dessous."),
                         Ligne.de(Items.WRITABLE_BOOK, "À changer dans Options, Commandes, Chantier."))));
     }
 
@@ -258,7 +258,7 @@ public class TutoScreen extends CadreScreen {
 
     /** Les touches, en grand. */
     private void maquetteTouches(GuiGraphicsExtractor g, int x, int y, int l, int h) {
-        KeyMapping[] touches = {ChantierClient.OUVRIR, ChantierClient.COUCHE_HAUT, ChantierClient.COUCHE_BAS};
+        KeyMapping[] touches = {Touches.OUVRIR, Touches.COUCHE_HAUT, Touches.COUCHE_BAS};
         for (int i = 0; i < touches.length; i++) {
             String nom = touches[i].getKey().getDisplayName().getString();
             int lt = Math.max(40, font.width(nom) + 16);

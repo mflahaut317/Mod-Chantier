@@ -82,7 +82,6 @@ final class Hologramme {
             dimension = mc.level.dimension().identifier().toString();
             poses = 0;
             total = 0;
-            compteur = 19; // statistiques dès le prochain tick
             suivre = true;  // il apparaît devant le joueur et suit son viseur
             return null;
         } catch (IOException | RuntimeException e) {
@@ -196,7 +195,6 @@ final class Hologramme {
             origine = new BlockPos(fr.maxence.chantier.HoloRecu.x, fr.maxence.chantier.HoloRecu.y, fr.maxence.chantier.HoloRecu.z);
             rotation = fr.maxence.chantier.HoloRecu.rotation;
             dimension = fr.maxence.chantier.HoloRecu.dimension;
-            compteur = 19;
         }
     }
 
@@ -461,7 +459,6 @@ final class Hologramme {
             if (couche >= plan.sy) couche = -1;
             visible = Boolean.parseBoolean(p.getProperty("visible", "true"));
             dimension = p.getProperty("dimension", "");
-            compteur = 19;
         } catch (IOException | RuntimeException ignored) {
             // Réglages illisibles : pas d'hologramme
         }
