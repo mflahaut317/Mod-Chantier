@@ -16,11 +16,13 @@ jobs:
           JAR=$(grep -l "net/minecraft/client/Minecraft.class" $(find build ~/.gradle -name '*.jar' 2>/dev/null) 2>/dev/null | head -1)
           echo "JAR=$JAR"
           CP="$JAR:$(find ~/.gradle build -name 'neoforge-*.jar' 2>/dev/null | tr '\n' ':')"
-          echo "=== MC gizmo"; javap -p -cp "$CP" net.minecraft.client.Minecraft 2>&1 | grep -iE 'gizmo' | head
-          echo "=== LevelRenderer gizmo"; javap -p -cp "$CP" net.minecraft.client.renderer.LevelRenderer 2>&1 | grep -iE 'gizmo' | head
-          echo "=== Simple"; javap -cp "$CP" net.minecraft.gizmos.SimpleGizmoCollector 2>&1 | head -20
-          echo "=== Temp"; javap -cp "$CP" 'net.minecraft.gizmos.Gizmos$TemporaryCollection' 2>&1 | head
-          echo "=== Coll"; javap -cp "$CP" net.minecraft.gizmos.GizmoCollector 2>&1 | head
-          echo "=== RLSE subs"; for J in $(echo "$CP" | tr ':' ' '); do [ -f "$J" ] && jar tf "$J" | grep -E 'RenderLevelStageEvent|client/event/ClientTickEvent|client/event/.*Gizmo' ; done | sort -u
-          javap -cp "$CP" 'net.neoforged.neoforge.client.event.RenderLevelStageEvent$AfterTranslucentBlocks' 2>&1 | head -8
-          echo "=== Debug"; javap -p -cp "$CP" net.minecraft.client.renderer.debug.DebugRenderer 2>&1 | grep -iE 'emit|gizmo|public' | head -20
+          echo "=== GGE"; javap -cp "$CP" net.minecraft.client.gui.GuiGraphicsExtractor 2>&1 | grep -E 'text|fill|item|blit|outline|pose|scissor|enable|disable' | head -40
+          echo "=== KeyMapping"; javap -cp "$CP" net.minecraft.client.KeyMapping 2>&1 | grep -E 'public' | head -30
+          echo "=== KeyCat"; javap -cp "$CP" 'net.minecraft.client.KeyMapping$Category' 2>&1 | head -20
+          echo "=== RKME"; javap -cp "$CP" net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent 2>&1 | head -12
+          echo "=== Screen proc"; javap -cp "$CP" net.minecraft.client.gui.screens.Screen 2>&1 | grep -iE 'shift|key' | head
+          echo "=== Minecraft shift"; javap -cp "$CP" net.minecraft.client.Minecraft 2>&1 | grep -iE 'shift|control' | head
+          echo "=== BlockState rot"; javap -cp "$CP" net.minecraft.world.level.block.state.BlockState 2>&1 | grep -iE 'rotate|mirror' | head
+          echo "=== Rotation"; javap -cp "$CP" net.minecraft.world.level.block.Rotation 2>&1 | head -12
+          echo "=== NbtUtils"; javap -cp "$CP" net.minecraft.nbt.NbtUtils 2>&1 | grep -iE 'BlockState' | head
+          echo "=== BlockStateParser"; javap -cp "$CP" net.minecraft.commands.arguments.blocks.BlockStateParser 2>&1 | grep -E 'public static' | head
