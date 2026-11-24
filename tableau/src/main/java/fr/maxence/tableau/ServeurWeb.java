@@ -25,7 +25,7 @@ import net.neoforged.fml.loading.FMLPaths;
  */
 final class ServeurWeb {
     private final ServerSocket socket;
-    private final ExecutorService fils = Executors.newFixedThreadPool(4, r -> {
+    private final ExecutorService fils = Executors.newFixedThreadPool(16, r -> {
         Thread t = new Thread(r, "Tableau web");
         t.setDaemon(true);
         return t;
@@ -85,7 +85,8 @@ final class ServeurWeb {
         while (!socket.isClosed()) {
             try {
                 Socket client = socket.accept();
-                client.setSoTimeout(5000);
+                // Les navigateurs ouvrent des connexions « à l'avance » qui n'envoient rien : on ne les attend pas longtemps.
+                client.setSoTimeout(2000);
                 fils.submit(() -> repondre(client));
             } catch (IOException e) {
                 if (socket.isClosed()) return;
@@ -131,7 +132,7 @@ final class ServeurWeb {
                     byte[] png = null;
                     try { png = Carte.imageTuile(dim, Integer.parseInt(p[1]), Integer.parseInt(p[2].replace(".png", ""))); }
                     catch (NumberFormatException | ArrayIndexOutOfBoundsException ignored) { }
-                    if (png != null) envoyer(out, 200, "image/png", png);
+                    if (png != null) envoyer(out, 200, "image/png", png, "max-age=60");
                     else envoyer(out, 404, "text/plain", "Introuvable".getBytes(StandardCharsets.UTF_8));
                 }
             } else if (chemin.startsWith("/photo/")) {
@@ -160,9 +161,14 @@ final class ServeurWeb {
     }
 
     private static void envoyer(OutputStream out, int code, String type, byte[] corps) throws IOException {
+        envoyer(out, code, type, corps, "no-store");
+    }
+
+    /** cache : "no-store" pour l'état, "max-age=60" pour les tuiles de carte (redessinées au plus une fois par minute). */
+    private static void envoyer(OutputStream out, int code, String type, byte[] corps, String cache) throws IOException {
         String statut = switch (code) { case 200 -> "OK"; case 404 -> "Not Found"; default -> "Method Not Allowed"; };
         String entete = "HTTP/1.1 " + code + " " + statut + "\r\nContent-Type: " + type + "\r\nContent-Length: " + corps.length
-                + "\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n";
+                + "\r\nCache-Control: " + cache + "\r\nConnection: close\r\n\r\n";
         out.write(entete.getBytes(StandardCharsets.ISO_8859_1));
         out.write(corps);
         out.flush();
