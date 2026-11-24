@@ -12,6 +12,9 @@ SERVEUR=~/survie
 DEPOT=mflahaut317/Mod-Chantier
 BASE="https://github.com/$DEPOT/releases/download/dernier"
 
+# 0. Mot de passe sudo demandé tout de suite (sinon le serveur pourrait rester arrêté si sudo expire)
+sudo -v || { echo "Mot de passe sudo refusé : rien n'a été fait."; exit 1; }
+
 # 1. Version à installer
 if [ $# -ge 1 ]; then
     VERSION="$1"
@@ -59,6 +62,7 @@ fi
 rm -f "$SERVEUR"/mods/chantier-*.jar
 
 # 5. Redémarrage
+sudo systemctl daemon-reload
 sudo systemctl restart minecraft
 echo "C'est fait : Chantier $VERSION. Le serveur redémarre (environ 1 minute)."
 echo "Côté joueurs : fermer Minecraft et relancer l'instance depuis Prism."
