@@ -88,6 +88,8 @@ public class ChantierClient {
     @SubscribeEvent
     static void onDeconnexion(ClientPlayerNetworkEvent.LoggingOut event) {
         BlocsFantomes.vider();
+        Hologramme.deconnexion();
+        fr.maxence.chantier.HoloRecu.vider();
         EtatRecu.vider();
         ConfigRecue.vider();
     }

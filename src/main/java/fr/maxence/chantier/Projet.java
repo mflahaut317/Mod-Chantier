@@ -64,6 +64,11 @@ public final class Projet {
         String schema = null;
         /** Liste du schéma (ID -> quantité), gardée pour le redémarrage du serveur. */
         Map<String, Integer> listeSchema = null;
+        /** Hologramme partagé (null : aucun). Les blocs sont dans config/chantier-holo/<id>.bin. */
+        String holoNom = null;
+        int holoVersion = 0;
+        int holoX, holoY, holoZ, holoRotation;
+        String holoDimension = null;
     }
 
     /** Joueurs en mode « choisir les coffres » (non sauvegardé). */

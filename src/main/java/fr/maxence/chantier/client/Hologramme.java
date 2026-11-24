@@ -54,6 +54,11 @@ final class Hologramme {
     private static final java.util.HashMap<Long, Integer> INDEX = new java.util.HashMap<>();
     private static String cleIndex = "";
 
+    /** Hologramme du chantier, partagé avec tout le groupe (reçu du serveur). */
+    static boolean partage;
+    private static int versionPartage = -1;
+    private static int dernierChangement = -1;
+
     private static boolean restaure;
     private static int compteur;
 
@@ -82,7 +87,22 @@ final class Hologramme {
         }
     }
 
+    /** Déconnexion : le hologramme du groupe sera renvoyé par le serveur à la prochaine connexion. */
+    static void deconnexion() {
+        if (partage) { partage = false; versionPartage = -1; retirerLocal(); }
+        restaure = false;
+        dernierChangement = -1;
+    }
+
+    /** Retire le hologramme ; s'il est partagé, il disparaît pour tout le groupe. */
     static void retirer() {
+        if (partage) net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(
+                new fr.maxence.chantier.ActionPayload("holo_retirer", ""));
+        partage = false;
+        retirerLocal();
+    }
+
+    private static void retirerLocal() {
         suivre = false;
         BlocsFantomes.vider();
         plan = null;
@@ -120,6 +140,61 @@ final class Hologramme {
     static void poser() {
         suivre = false;
         apresChangement();
+        envoyerPosition();
+    }
+
+    /** Hologramme partagé : prévient le serveur (et donc le groupe) qu'il a bougé. */
+    private static void envoyerPosition() {
+        if (!partage || origine == null) return;
+        net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new fr.maxence.chantier.ActionPayload("holo_position",
+                origine.getX() + ";" + origine.getY() + ";" + origine.getZ() + ";" + rotation + ";" + dimension));
+    }
+
+    /** Envoie le hologramme au serveur pour tout le groupe. @return message pour le joueur */
+    static String partagerAvecGroupe() {
+        if (plan == null || origine == null) return "Aucun hologramme à partager.";
+        byte[] tout = Volume.encoderComplet(plan);
+        if (tout.length == 0) return "Schéma trop varié pour être partagé (plus de 255 blocs différents).";
+        int morceau = 30_000;
+        int total = (tout.length + morceau - 1) / morceau;
+        for (int i = 0; i < total; i++) {
+            byte[] part = java.util.Arrays.copyOfRange(tout, i * morceau, Math.min(tout.length, (i + 1) * morceau));
+            net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new fr.maxence.chantier.HoloEnvoiPayload(
+                    nom, origine.getX(), origine.getY(), origine.getZ(), rotation, dimension, i, total, part));
+        }
+        return "Envoi au groupe…";
+    }
+
+    /** Applique ce que le serveur a envoyé : nouveau hologramme du groupe, déplacement ou retrait. */
+    private static void synchroniser() {
+        int c = fr.maxence.chantier.HoloRecu.changement;
+        if (c == dernierChangement) return;
+        dernierChangement = c;
+        if (fr.maxence.chantier.HoloRecu.retire) {
+            if (partage) { partage = false; versionPartage = -1; retirerLocal(); }
+            return;
+        }
+        byte[] donnees = fr.maxence.chantier.HoloRecu.donnees;
+        int v = fr.maxence.chantier.HoloRecu.version;
+        if (donnees != null && v != versionPartage) {
+            Volume.Grille g = Volume.decoder(donnees);
+            if (g == null) return;
+            plan = Volume.versPlan(g);
+            fichier = null;
+            nom = fr.maxence.chantier.HoloRecu.nom;
+            couche = -1;
+            suivre = false;
+            visible = true;
+            versionPartage = v;
+            partage = true;
+            try { Files.deleteIfExists(fichierReglages()); } catch (IOException ignored) { }
+        }
+        if (partage && !suivre) {
+            origine = new BlockPos(fr.maxence.chantier.HoloRecu.x, fr.maxence.chantier.HoloRecu.y, fr.maxence.chantier.HoloRecu.z);
+            rotation = fr.maxence.chantier.HoloRecu.rotation;
+            dimension = fr.maxence.chantier.HoloRecu.dimension;
+            compteur = 19;
+        }
     }
 
     /** Pendant le suivi : centre l'hologramme sur le bloc visé (jusqu'à 64 blocs), posé dessus. */
@@ -141,6 +216,7 @@ final class Hologramme {
         origine = mc.player.blockPosition();
         dimension = mc.level.dimension().identifier().toString();
         apresChangement();
+        envoyerPosition();
     }
 
     /** Déplace par rapport à la direction du regard (avant > 0 = vers où on regarde). */
@@ -152,6 +228,7 @@ final class Hologramme {
         origine = origine.offset(face.getStepX() * avant + cote.getStepX() * droite, haut,
                 face.getStepZ() * avant + cote.getStepZ() * droite);
         apresChangement();
+        envoyerPosition();
     }
 
     /** Quart de tour dans le sens des aiguilles d'une montre, autour du centre du schéma. */
@@ -161,6 +238,7 @@ final class Hologramme {
         rotation = (rotation + 1) % 4;
         origine = new BlockPos(cx - largeur() / 2, origine.getY(), cz - profondeur() / 2);
         apresChangement();
+        envoyerPosition();
     }
 
     static void changerCouche(int pas) {
@@ -185,6 +263,7 @@ final class Hologramme {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null) return;
         if (!restaure) { restaure = true; restaurer(); }
+        synchroniser();
         if (plan != null && suivre) suivreViseur(mc);
         vise = -1;
         boolean blocs = modeBlocs && BlocsFantomes.disponible();
@@ -299,7 +378,7 @@ final class Hologramme {
     }
 
     private static void sauver() {
-        if (plan == null || fichier == null || origine == null) return;
+        if (plan == null || fichier == null || origine == null || partage) return;
         Properties p = new Properties();
         p.setProperty("fichier", fichier.toAbsolutePath().toString());
         p.setProperty("x", Integer.toString(origine.getX()));

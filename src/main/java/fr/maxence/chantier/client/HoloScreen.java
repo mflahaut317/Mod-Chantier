@@ -49,10 +49,11 @@ public class HoloScreen extends CadreScreen {
             return;
         }
 
-        bouton("Déplacer en visant", X, y, L, () -> {
+        bouton("En visant", X, y, DEMI, () -> {
             Hologramme.commencerSuivi();
             minecraft.gui.setScreen(null);
         });
+        bouton("Tourner", X + L - DEMI, y, DEMI, Hologramme::tourner);
         y += 22;
         bouton("Avancer", X, y, TIERS, () -> Hologramme.deplacer(1, 0, 0));
         bouton("Reculer", X + 51, y, TIERS, () -> Hologramme.deplacer(-1, 0, 0));
@@ -61,8 +62,6 @@ public class HoloScreen extends CadreScreen {
         bouton("Gauche", X, y, TIERS, () -> Hologramme.deplacer(0, -1, 0));
         bouton("Droite", X + 51, y, TIERS, () -> Hologramme.deplacer(0, 1, 0));
         bouton("Baisser", X + 102, y, TIERS, () -> Hologramme.deplacer(0, 0, -1));
-        y += 23;
-        bouton("Tourner d'un quart", X, y, L, Hologramme::tourner);
         y += 35; // place pour le texte « Couche »
         bouton("Couche -", X, y, TIERS, () -> Hologramme.changerCouche(-1));
         bouton("Toutes", X + 51, y, TIERS, Hologramme::toutesLesCouches);
@@ -74,7 +73,11 @@ public class HoloScreen extends CadreScreen {
                 () -> Hologramme.parDessus = !Hologramme.parDessus);
         y += 21;
         bouton(Hologramme.visible ? "Masquer" : "Afficher", X, y, DEMI, Hologramme::basculerVisible);
-        bouton("Retirer", X + L - DEMI, y, DEMI, Hologramme::retirer);
+        bouton(Hologramme.partage ? "Retirer (groupe)" : "Retirer", X + L - DEMI, y, DEMI, Hologramme::retirer);
+        y += 21;
+        Button groupe = bouton(Hologramme.partage ? "Partagé avec le groupe ✔" : "Partager avec le groupe", X, y, L,
+                () -> message = Hologramme.partagerAvecGroupe());
+        groupe.active = !Hologramme.partage;
         y += 21;
         bouton("Autre schéma", X, y, DEMI, () -> minecraft.gui.setScreen(new SchemaScreen(this)));
         bouton("Fermer", X + L - DEMI, y, DEMI, this::onClose);
@@ -101,11 +104,12 @@ public class HoloScreen extends CadreScreen {
                 : "Posés : " + Hologramme.poses + " / " + Hologramme.total
                 + " (" + (Hologramme.poses * 100 / Hologramme.total) + " %)";
         texte(g, font, avancement, X, 35, Hologramme.total > 0 && Hologramme.poses == Hologramme.total ? VERT : DOUX);
-        texte(g, font, Hologramme.largeur() + " x " + Hologramme.plan.sy + " x " + Hologramme.profondeur()
-                + (Hologramme.plan.tronque ? " (tronqué)" : ""), X, 45, DOUX);
+        String ligne = !message.isEmpty() ? message : Hologramme.largeur() + " x " + Hologramme.plan.sy + " x "
+                + Hologramme.profondeur() + (Hologramme.plan.tronque ? " (tronqué)" : "") + (Hologramme.partage ? " · groupe" : "");
+        texte(g, font, font.plainSubstrByWidth(ligne, L), X, 45, message.isEmpty() ? DOUX : OR);
         String couche = Hologramme.couche < 0 ? "Couche : toutes"
                 : "Couche : " + (Hologramme.couche + 1) + " / " + Hologramme.plan.sy;
-        texte(g, font, couche, X, 144, TEXTE);
+        texte(g, font, couche, X, 122, TEXTE);
 
         // Légende des couleurs
         int y = height - 26;

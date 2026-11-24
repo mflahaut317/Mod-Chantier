@@ -8,7 +8,7 @@ public final class Reseau {
     private Reseau() {}
 
     static void enregistrer(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("10").optional();
+        PayloadRegistrar registrar = event.registrar("11").optional();
         // Les gestionnaires côté joueur ne font que stocker les données : aucune classe client chargée côté serveur.
         registrar.playToClient(EtatPayload.TYPE, EtatPayload.CODEC,
                 (payload, contexte) -> EtatRecu.definir(payload));
@@ -21,6 +21,9 @@ public final class Reseau {
         registrar.playToServer(PartagePayload.TYPE, PartagePayload.CODEC, Actions::partager);
         registrar.playToClient(VolumePayload.TYPE, VolumePayload.CODEC,
                 (payload, contexte) -> VolumeRecu.definir(payload));
+        registrar.playToClient(HoloPayload.TYPE, HoloPayload.CODEC,
+                (payload, contexte) -> HoloRecu.recevoir(payload));
+        registrar.playToServer(HoloEnvoiPayload.TYPE, HoloEnvoiPayload.CODEC, HoloServeur::recevoir);
         registrar.playToServer(ImagePayload.TYPE, ImagePayload.CODEC, Actions::image);
     }
 }

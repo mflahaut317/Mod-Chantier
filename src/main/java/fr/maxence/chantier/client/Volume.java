@@ -44,6 +44,23 @@ final class Volume {
         return new byte[0];
     }
 
+    /** Tous les blocs, sans réduction (pour le hologramme partagé avec le groupe). */
+    static byte[] encoderComplet(LecteurLitematic.Plan plan) {
+        if (plan == null || plan.n == 0) return new byte[0];
+        return encoder(plan, Math.max(plan.sx, Math.max(plan.sy, plan.sz)));
+    }
+
+    /** Remet une grille sous forme de plan (positions + blocs) pour l'hologramme. */
+    static LecteurLitematic.Plan versPlan(Grille g) {
+        LecteurLitematic.Plan p = new LecteurLitematic.Plan();
+        for (int y = 0; y < g.sy(); y++) for (int z = 0; z < g.sz(); z++) for (int x = 0; x < g.sx(); x++) {
+            int v = g.bloc(x, y, z);
+            if (v != 0 && g.palette()[v] != null) p.ajouter(x, y, z, g.palette()[v]);
+        }
+        p.sx = g.sx(); p.sy = g.sy(); p.sz = g.sz();
+        return p;
+    }
+
     private static byte[] encoder(LecteurLitematic.Plan plan, int coteMax) {
         int grand = Math.max(plan.sx, Math.max(plan.sy, plan.sz));
         int pas = Math.max(1, (grand + coteMax - 1) / coteMax);
@@ -86,7 +103,7 @@ final class Volume {
             DataInputStream in = new DataInputStream(new ByteArrayInputStream(brut));
             int sx = in.readUnsignedShort(), sy = in.readUnsignedShort(), sz = in.readUnsignedShort();
             int n = in.readUnsignedShort();
-            if ((long) sx * sy * sz > 200_000 || n > 255) return null;
+            if ((long) sx * sy * sz > 30_000_000L || n > 255) return null;
             Block[] palette = new Block[n + 1];
             for (int i = 1; i <= n; i++) {
                 Identifier id = Identifier.tryParse(in.readUTF());
@@ -120,7 +137,7 @@ final class Volume {
             int n = i.inflate(tampon);
             if (n == 0 && (i.needsInput() || i.needsDictionary())) break;
             out.write(tampon, 0, n);
-            if (out.size() > 400_000) break;
+            if (out.size() > 32_000_000) break;
         }
         i.end();
         return out.toByteArray();

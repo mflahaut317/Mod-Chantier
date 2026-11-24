@@ -111,11 +111,13 @@ public final class Actions {
                 projet.diffuser(serveur);
                 cible.sendSystemMessage(Component.literal("§e" + joueur.getGameProfile().name()
                         + " t'a ajouté au chantier « " + projet.titre() + " »."));
+                HoloServeur.envoyerA(cible, projet);
                 repondre(joueur, valeur + " ajouté au chantier.", false);
             }
             case "quitter" -> {
                 projet.retirerMembre(joueur.getUUID());
                 Projet.envoyerBrut(joueur, Projet.VIDE);
+                HoloServeur.envoyerRetrait(joueur);
                 if (projet.sansMembre()) Chantiers.supprimer(projet, serveur);
                 else {
                     projet.forcerEnvoi();
@@ -129,6 +131,8 @@ public final class Actions {
                 if (projetGalerie == null) { repondre(joueur, "Ce projet n'est plus dans la galerie.", false); return; }
                 appliquerListe(joueur, projet, projetGalerie.getKey(), projetGalerie.getValue());
             }
+            case "holo_position" -> HoloServeur.position(joueur, projet, valeur);
+            case "holo_retirer" -> HoloServeur.retirer(projet, serveur);
             case "arreter" -> {
                 Chantiers.supprimer(projet, serveur);
                 repondre(joueur, "Chantier supprimé.", false);

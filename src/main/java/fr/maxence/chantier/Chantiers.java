@@ -50,6 +50,7 @@ public final class Chantiers {
     /** Supprime le chantier pour tout le monde ; les membres connectés voient la liste disparaître. */
     public static void supprimer(Projet p, MinecraftServer serveur) {
         List<ServerPlayer> membres = p.membresEnLigne(serveur);
+        HoloServeur.retirer(p, serveur);
         PAR_ID.remove(p.donnees().id);
         sauver();
         for (ServerPlayer j : membres) Projet.envoyerBrut(j, Projet.VIDE);
@@ -80,6 +81,7 @@ public final class Chantiers {
         }
         p.noterPseudo(joueur);
         p.envoyerA(joueur);
+        HoloServeur.envoyerA(joueur, p);
     }
 
     /** Au démarrage : relit le fichier et retélécharge la feuille de chaque chantier. */
