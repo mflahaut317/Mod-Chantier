@@ -73,7 +73,7 @@ public class SchemaScreen extends Screen {
             String nom = dossier.relativize(f).toString();
             addRenderableWidget(Button.builder(Component.literal(nom), b -> importer(f))
                     .bounds(gauche, y, LARGEUR - 70, 20).build());
-            addRenderableWidget(Button.builder(Component.literal("Partager"), b -> { message = partager(f); })
+            addRenderableWidget(Button.builder(Component.literal("Partager"), b -> partager(f))
                     .bounds(gauche + LARGEUR - 66, y, 66, 20).build());
             y += HAUTEUR_LIGNE;
         }
@@ -106,11 +106,27 @@ public class SchemaScreen extends Screen {
         }
     }
 
-    /** Partage le schéma dans la galerie commune du serveur (liste + vue du dessus). */
-    static String partager(Path fichier) {
+    /** Lit le schéma puis ouvre la fiche (nom + description) avant de le partager. */
+    private void partager(Path fichier) {
         try {
+            GaleriePayload.Entree e = preparer(fichier);
+            if (e == null) { message = "Ce schéma ne contient aucun bloc."; return; }
+            minecraft.gui.setScreen(new FicheScreen(this, "Partager dans la galerie", e.nom(), "", "Partager",
+                    (nom, description) -> {
+                        ClientPacketDistributor.sendToServer(new fr.maxence.chantier.PartagePayload(new GaleriePayload.Entree(
+                                "", nom, "", description, e.largeur(), e.hauteur(), e.apercu(), e.lignes())));
+                        message = "Envoi de « " + nom + " » dans la galerie commune…";
+                    }));
+        } catch (IOException | RuntimeException ex) {
+            message = "Lecture impossible : " + ex.getMessage();
+        }
+    }
+
+    /** Liste + vue 3D d'un schéma, prêtes à partager (null si vide). */
+    static GaleriePayload.Entree preparer(Path fichier) throws IOException {
+        {
             LecteurLitematic.Lecture lecture = LecteurLitematic.lire(fichier);
-            if (lecture.blocs().isEmpty()) return "Ce schéma ne contient aucun bloc.";
+            if (lecture.blocs().isEmpty()) return null;
             List<EtatPayload.Ligne> lignes = new ArrayList<>();
             for (Map.Entry<Item, Integer> e : lecture.blocs().entrySet()) {
                 lignes.add(new EtatPayload.Ligne(BuiltInRegistries.ITEM.getKey(e.getKey()).toString(), e.getValue(), 0));
@@ -123,11 +139,8 @@ public class SchemaScreen extends Screen {
                 rgb[i * 3 + 2] = (byte) c;
             }
             String nom = fichier.getFileName().toString().replaceAll("(?i)\\.(litematic|schem|nbt)$", "");
-            ClientPacketDistributor.sendToServer(new fr.maxence.chantier.PartagePayload(new GaleriePayload.Entree(
-                    "", nom, "", lecture.largeur(), lecture.hauteur(), fr.maxence.chantier.Images.compresser(rgb), lignes)));
-            return "Envoi de « " + nom + " » dans la galerie commune…";
-        } catch (IOException | RuntimeException e) {
-            return "Lecture impossible : " + e.getMessage();
+            return new GaleriePayload.Entree("", nom, "", "", lecture.largeur(), lecture.hauteur(),
+                    fr.maxence.chantier.Images.compresser(rgb), lignes);
         }
     }
 

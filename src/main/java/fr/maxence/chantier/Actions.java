@@ -28,6 +28,14 @@ public final class Actions {
                 GalerieCommune.envoyerA(joueur);
                 return;
             }
+            case "galerie_modifier" -> {
+                // valeur : id \n nom \n description
+                String[] parties = valeur.split("\n", 3);
+                if (parties.length < 3) return;
+                joueur.sendSystemMessage(Component.literal(GalerieCommune.modifier(parties[0], parties[1], parties[2])));
+                GalerieCommune.envoyerA(joueur);
+                return;
+            }
             case "creer" -> {
                 if (projet != null) { repondre(joueur, "Tu es déjà dans un chantier.", false); return; }
                 Projet nouveau = Chantiers.creer(joueur, valeur);

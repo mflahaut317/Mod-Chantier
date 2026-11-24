@@ -33,6 +33,7 @@ public final class GalerieCommune {
         String id;
         String nom;
         String auteur;
+        String description;
         int largeur;
         int hauteur;
         String apercu; // base64 du RGB compressé (Images.compresser)
@@ -55,6 +56,7 @@ public final class GalerieCommune {
         p.nom = e.nom().isBlank() ? "Sans nom" : e.nom().strip();
         if (p.nom.length() > 60) p.nom = p.nom.substring(0, 60);
         p.auteur = joueur.getGameProfile().name();
+        p.description = nettoyer(e.description(), 250);
         p.largeur = e.largeur();
         p.hauteur = e.hauteur();
         p.apercu = Base64.getEncoder().encodeToString(e.apercu());
@@ -82,6 +84,24 @@ public final class GalerieCommune {
             return "Image de « " + p.nom + " » mise à jour.";
         }
         return "Ce projet n'est plus dans la galerie.";
+    }
+
+    /** Change le nom et la description d'un projet. */
+    static String modifier(String id, String nom, String description) {
+        for (Projet p : PROJETS) {
+            if (!p.id.equals(id)) continue;
+            String n = nettoyer(nom, 60);
+            if (!n.isEmpty()) p.nom = n;
+            p.description = nettoyer(description, 250);
+            sauver();
+            return "« " + p.nom + " » mis à jour.";
+        }
+        return "Ce projet n'est plus dans la galerie.";
+    }
+
+    private static String nettoyer(String texte, int max) {
+        String t = texte == null ? "" : texte.replaceAll("[\\r\\n\\t]+", " ").strip();
+        return t.length() > max ? t.substring(0, max) : t;
     }
 
     static boolean supprimer(String id) {
@@ -113,7 +133,7 @@ public final class GalerieCommune {
             byte[] apercu;
             try { apercu = Base64.getDecoder().decode(p.apercu == null ? "" : p.apercu); } catch (IllegalArgumentException ex) { apercu = new byte[0]; }
             boolean ok = p.largeur > 0 && Images.decompresser(apercu, p.largeur * p.hauteur * 3) != null;
-            entrees.add(new GaleriePayload.Entree(p.id, p.nom, p.auteur, ok ? p.largeur : 0, ok ? p.hauteur : 0,
+            entrees.add(new GaleriePayload.Entree(p.id, p.nom, p.auteur, p.description == null ? "" : p.description, ok ? p.largeur : 0, ok ? p.hauteur : 0,
                     ok ? apercu : new byte[0], lignes));
         }
         PacketDistributor.sendToPlayer(joueur, new GaleriePayload(entrees));
