@@ -83,6 +83,30 @@ public class HoloScreen extends CadreScreen {
         bouton("Fermer", X + L - DEMI, y, DEMI, this::onClose);
     }
 
+    /**
+     * On peut marcher pendant que le panneau est ouvert : avancer, reculer, côtés, sauter, s'accroupir, courir.
+     * (Les menus coupent normalement ces touches ; on les relit nous-mêmes à chaque tick.)
+     */
+    @Override
+    public void tick() {
+        super.tick();
+        var o = minecraft.options;
+        for (net.minecraft.client.KeyMapping m : new net.minecraft.client.KeyMapping[]{
+                o.keyUp, o.keyDown, o.keyLeft, o.keyRight, o.keyJump, o.keyShift, o.keySprint}) {
+            com.mojang.blaze3d.platform.InputConstants.Key k = m.getKey();
+            if (k.getType() != com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM) continue;
+            m.setDown(com.mojang.blaze3d.platform.InputConstants.isKeyDown(k.getValue()));
+        }
+    }
+
+    @Override
+    public void removed() {
+        super.removed();
+        var o = minecraft.options;
+        for (net.minecraft.client.KeyMapping m : new net.minecraft.client.KeyMapping[]{
+                o.keyUp, o.keyDown, o.keyLeft, o.keyRight, o.keyJump, o.keyShift, o.keySprint}) m.setDown(false);
+    }
+
     /** Panneau clair à gauche seulement : le monde reste net derrière. */
     @Override
     public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
