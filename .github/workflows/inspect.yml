@@ -16,13 +16,11 @@ jobs:
           JAR=$(grep -l "net/minecraft/client/Minecraft.class" $(find build ~/.gradle -name '*.jar' 2>/dev/null) 2>/dev/null | head -1)
           echo "JAR=$JAR"
           CP="$JAR:$(find ~/.gradle build -name 'neoforge-*.jar' 2>/dev/null | tr '\n' ':')"
-          echo "=== classes MC"
-          jar tf "$JAR" | grep -iE 'gizmo|ShapeRenderer|DebugRenderer|rendertype/RenderTypes|LevelRenderer\.class|SubmitNodeCollector\.class' | head -60
-          echo "=== classes NeoForge"
-          for J in $(find ~/.gradle build -name 'neoforge-*.jar' 2>/dev/null); do jar tf "$J" | grep -iE 'client/event/.*(Render|Level|Submit|Extract)' ; done | sort -u | head -60
-          echo "=== Gizmos"; javap -cp "$CP" net.minecraft.gizmos.Gizmos 2>&1 | head -60
-          echo "=== GizmoStyle"; javap -cp "$CP" net.minecraft.gizmos.GizmoStyle 2>&1 | head -40
-          echo "=== GizmoProperties"; javap -cp "$CP" net.minecraft.gizmos.GizmoProperties 2>&1 | head -20
-          echo "=== ShapeRenderer"; javap -cp "$CP" net.minecraft.client.renderer.ShapeRenderer 2>&1 | head -30
-          echo "=== RLSE"; javap -cp "$CP" net.neoforged.neoforge.client.event.RenderLevelStageEvent 2>&1 | head -60
-          echo "=== MouseButtonEvent"; javap -cp "$CP" net.minecraft.client.input.MouseButtonEvent 2>&1 | head
+          echo "=== MC gizmo"; javap -p -cp "$CP" net.minecraft.client.Minecraft 2>&1 | grep -iE 'gizmo' | head
+          echo "=== LevelRenderer gizmo"; javap -p -cp "$CP" net.minecraft.client.renderer.LevelRenderer 2>&1 | grep -iE 'gizmo' | head
+          echo "=== Simple"; javap -cp "$CP" net.minecraft.gizmos.SimpleGizmoCollector 2>&1 | head -20
+          echo "=== Temp"; javap -cp "$CP" 'net.minecraft.gizmos.Gizmos$TemporaryCollection' 2>&1 | head
+          echo "=== Coll"; javap -cp "$CP" net.minecraft.gizmos.GizmoCollector 2>&1 | head
+          echo "=== RLSE subs"; for J in $(echo "$CP" | tr ':' ' '); do [ -f "$J" ] && jar tf "$J" | grep -E 'RenderLevelStageEvent|client/event/ClientTickEvent|client/event/.*Gizmo' ; done | sort -u
+          javap -cp "$CP" 'net.neoforged.neoforge.client.event.RenderLevelStageEvent$AfterTranslucentBlocks' 2>&1 | head -8
+          echo "=== Debug"; javap -p -cp "$CP" net.minecraft.client.renderer.debug.DebugRenderer 2>&1 | grep -iE 'emit|gizmo|public' | head -20
