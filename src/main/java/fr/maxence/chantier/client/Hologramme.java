@@ -42,6 +42,8 @@ final class Hologramme {
 
     /** Mode « en visant » : l'hologramme suit le viseur jusqu'au clic droit. */
     static boolean suivre;
+    /** Mode réglage sans menu : on joue normalement et on ajuste au clavier (flèches, R, Entrée…). */
+    static boolean edition;
     /** Dessiné par-dessus tout (visible à travers les blocs) : utile avec les shaders. */
     static boolean parDessus;
     /** Affichage en vrais blocs miniatures (compatible shaders) plutôt qu'en cubes transparents. */

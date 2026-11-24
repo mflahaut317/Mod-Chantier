@@ -4,5 +4,12 @@
   "key.category.chantier": "Chantier",
   "key.chantier.ouvrir": "Ouvrir Chantier",
   "key.chantier.couche_haut": "Hologramme : couche au-dessus",
-  "key.chantier.couche_bas": "Hologramme : couche en dessous"
+  "key.chantier.couche_bas": "Hologramme : couche en dessous",
+  "key.chantier.edition": "Hologramme : mode réglage",
+  "key.chantier.avancer": "Hologramme : avancer (Maj : monter)",
+  "key.chantier.reculer": "Hologramme : reculer (Maj : baisser)",
+  "key.chantier.gauche": "Hologramme : gauche",
+  "key.chantier.droite": "Hologramme : droite",
+  "key.chantier.tourner": "Hologramme : tourner",
+  "key.chantier.viser": "Hologramme : placer en visant"
 }

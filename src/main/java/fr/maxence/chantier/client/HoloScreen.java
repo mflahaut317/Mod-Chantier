@@ -79,7 +79,10 @@ public class HoloScreen extends CadreScreen {
                 () -> message = Hologramme.partagerAvecGroupe());
         groupe.active = !Hologramme.partage;
         y += 21;
-        bouton("Autre schéma", X, y, DEMI, () -> minecraft.gui.setScreen(new SchemaScreen(this)));
+        bouton("Réglage libre", X, y, DEMI, () -> {
+            Hologramme.edition = true;
+            minecraft.gui.setScreen(null);
+        });
         bouton("Fermer", X + L - DEMI, y, DEMI, this::onClose);
     }
 
@@ -94,7 +97,7 @@ public class HoloScreen extends CadreScreen {
         for (net.minecraft.client.KeyMapping m : new net.minecraft.client.KeyMapping[]{
                 o.keyUp, o.keyDown, o.keyLeft, o.keyRight, o.keyJump, o.keyShift, o.keySprint}) {
             com.mojang.blaze3d.platform.InputConstants.Key k = m.getKey();
-            if (k.getType() != com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM) continue;
+            if (k.getValue() < 32) continue; // boutons de souris : on ne touche pas
             m.setDown(com.mojang.blaze3d.platform.InputConstants.isKeyDown(k.getValue()));
         }
     }
