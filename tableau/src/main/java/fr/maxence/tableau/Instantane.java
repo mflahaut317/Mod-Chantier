@@ -71,7 +71,7 @@ final class Instantane {
     private static JsonObject monde(MinecraftServer serveur) {
         JsonObject m = new JsonObject();
         ServerLevel l = serveur.overworld();
-        long temps = l.getDayTime();
+        long temps = heureDuMonde(l);
         m.addProperty("jour", temps / 24000 + 1);
         long h = (temps % 24000 + 6000) % 24000; // 0 = 6 h du matin dans le jeu
         m.addProperty("heure", String.format("%02d:%02d", h / 1000, (h % 1000) * 60 / 1000));
@@ -79,6 +79,17 @@ final class Instantane {
         m.addProperty("orage", l.isThundering());
         m.addProperty("joueursMax", serveur.getMaxPlayers());
         return m;
+    }
+
+    /** Heure du monde : le nom de la méthode a changé selon les versions ; à défaut, le temps de jeu total. */
+    private static long heureDuMonde(ServerLevel l) {
+        for (String nom : new String[]{"getDayTime", "getDefaultClockTime", "getOverworldClockTime", "dayTime"}) {
+            try {
+                Object v = l.getClass().getMethod(nom).invoke(l);
+                if (v instanceof Long t) return t;
+            } catch (ReflectiveOperationException | RuntimeException ignored) { }
+        }
+        return l.getGameTime();
     }
 
     private static JsonArray joueurs(MinecraftServer serveur) {
