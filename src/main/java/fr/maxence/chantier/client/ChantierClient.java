@@ -87,6 +87,7 @@ public class ChantierClient {
 
     @SubscribeEvent
     static void onDeconnexion(ClientPlayerNetworkEvent.LoggingOut event) {
+        BlocsFantomes.vider();
         EtatRecu.vider();
         ConfigRecue.vider();
     }

@@ -44,6 +44,8 @@ final class Hologramme {
     static boolean suivre;
     /** Dessiné par-dessus tout (visible à travers les blocs) : utile avec les shaders. */
     static boolean parDessus;
+    /** Affichage en vrais blocs miniatures (compatible shaders) plutôt qu'en cubes transparents. */
+    static boolean modeBlocs = true;
 
     /** Bloc fantôme visé par le joueur (-1 : aucun) et ce qui se trouve à sa place. */
     static int vise = -1;
@@ -82,6 +84,7 @@ final class Hologramme {
 
     static void retirer() {
         suivre = false;
+        BlocsFantomes.vider();
         plan = null;
         fichier = null;
         try { Files.deleteIfExists(fichierReglages()); } catch (IOException ignored) { }
@@ -184,9 +187,31 @@ final class Hologramme {
         if (!restaure) { restaure = true; restaurer(); }
         if (plan != null && suivre) suivreViseur(mc);
         vise = -1;
-        if (plan == null || origine == null || !visible) return;
-        if (!mc.level.dimension().identifier().toString().equals(dimension)) return;
+        boolean blocs = modeBlocs && BlocsFantomes.disponible();
+        if (plan == null || origine == null || !visible || !mc.level.dimension().identifier().toString().equals(dimension)) {
+            BlocsFantomes.vider();
+            return;
+        }
         if (!suivre) chercherVise(mc);
+        if (blocs && !suivre) {
+            // Vrais blocs miniatures, mis à jour 4 fois par seconde
+            if (compteur % 5 == 0) {
+                BlockPos.MutableBlockPos q = new BlockPos.MutableBlockPos();
+                BlocsFantomes.mettreAJour(plan, plan.n + "|" + origine.asLong() + "|" + rotation,
+                        i -> {
+                            if (couche >= 0 && plan.pos[i * 3 + 1] != couche) return false;
+                            monde(i, q);
+                            return mc.level.isLoaded(q) && mc.level.getBlockState(q).getBlock() != plan.blocs[i];
+                        },
+                        i -> {
+                            BlockState a = mc.level.getBlockState(monde(i, q));
+                            return !(a.isAir() || a.canBeReplaced());
+                        },
+                        i -> { monde(i, q); return new int[]{q.getX(), q.getY(), q.getZ()}; });
+            }
+        } else {
+            BlocsFantomes.vider();
+        }
 
         boolean stats = ++compteur % 20 == 0;
         int bons = 0, vus = 0, dessines = 0;
@@ -207,6 +232,12 @@ final class Hologramme {
                 boolean bon = actuel.getBlock() == attendu;
                 if (stats) { vus++; if (bon) bons++; }
                 if (bon || !bonneCouche || !proche || dessines >= DESSIN_MAX) continue;
+                if (blocs && !suivre) {
+                    // Mode blocs : seul le bloc visé garde un cadre blanc
+                    if (i == vise) Gizmos.cuboid(new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1),
+                            GizmoStyle.stroke(0xFFFFFFFF, 3.0f));
+                    continue;
+                }
 
                 boolean libre = actuel.isAir() || actuel.canBeReplaced();
                 int x = pos.getX(), y = pos.getY(), z = pos.getZ();

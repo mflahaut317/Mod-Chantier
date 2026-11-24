@@ -64,13 +64,15 @@ public class HoloScreen extends CadreScreen {
         y += 23;
         bouton("Tourner d'un quart", X, y, L, Hologramme::tourner);
         y += 35; // place pour le texte « Couche »
-        bouton("Couche -", X, y, DEMI, () -> Hologramme.changerCouche(-1));
-        bouton("Couche +", X + L - DEMI, y, DEMI, () -> Hologramme.changerCouche(1));
-        y += 21;
-        bouton("Toutes", X, y, DEMI, Hologramme::toutesLesCouches);
+        bouton("Couche -", X, y, TIERS, () -> Hologramme.changerCouche(-1));
+        bouton("Toutes", X + 51, y, TIERS, Hologramme::toutesLesCouches);
+        bouton("Couche +", X + 102, y, TIERS, () -> Hologramme.changerCouche(1));
+        y += 24;
+        bouton(Hologramme.modeBlocs ? "Rendu : blocs" : "Rendu : cubes", X, y, DEMI,
+                () -> Hologramme.modeBlocs = !Hologramme.modeBlocs);
         bouton(Hologramme.parDessus ? "À travers : oui" : "À travers : non", X + L - DEMI, y, DEMI,
                 () -> Hologramme.parDessus = !Hologramme.parDessus);
-        y += 24;
+        y += 21;
         bouton(Hologramme.visible ? "Masquer" : "Afficher", X, y, DEMI, Hologramme::basculerVisible);
         bouton("Retirer", X + L - DEMI, y, DEMI, Hologramme::retirer);
         y += 21;
