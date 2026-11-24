@@ -16,4 +16,4 @@ jobs:
           JAR=$(grep -l "net/minecraft/client/Minecraft.class" $(find build ~/.gradle -name '*.jar' 2>/dev/null) 2>/dev/null | head -1)
           echo "JAR=$JAR"
           CP="$JAR:$(find ~/.gradle build -name 'neoforge-*.jar' 2>/dev/null | tr '\n' ':')"
-          for c in net.minecraft.nbt.NbtIo net.minecraft.nbt.CompoundTag net.minecraft.nbt.ListTag net.minecraft.nbt.NbtAccounter net.minecraft.world.level.block.Block; do echo "=== $c"; javap -cp "$CP" "$c" 2>&1 | grep -E 'public' | grep -vE 'equals|hashCode|toString' | grep -iE 'read|get|compound|list|long|string|size|unlimited|asItem|static|Optional' | head -50; done
+          javap -cp "$CP" net.minecraft.client.gui.screens.Screen net.minecraft.client.gui.components.events.ContainerEventHandler net.minecraft.client.gui.components.events.GuiEventListener | grep -iE 'drop|file|path' 
