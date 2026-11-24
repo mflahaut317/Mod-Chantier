@@ -16,13 +16,13 @@ jobs:
           JAR=$(grep -l "net/minecraft/client/Minecraft.class" $(find build ~/.gradle -name '*.jar' 2>/dev/null) 2>/dev/null | head -1)
           echo "JAR=$JAR"
           CP="$JAR:$(find ~/.gradle build -name 'neoforge-*.jar' 2>/dev/null | tr '\n' ':')"
-          echo "=== GGE"; javap -cp "$CP" net.minecraft.client.gui.GuiGraphicsExtractor 2>&1 | grep -E 'text|fill|item|blit|outline|pose|scissor|enable|disable' | head -40
-          echo "=== KeyMapping"; javap -cp "$CP" net.minecraft.client.KeyMapping 2>&1 | grep -E 'public' | head -30
-          echo "=== KeyCat"; javap -cp "$CP" 'net.minecraft.client.KeyMapping$Category' 2>&1 | head -20
-          echo "=== RKME"; javap -cp "$CP" net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent 2>&1 | head -12
-          echo "=== Screen proc"; javap -cp "$CP" net.minecraft.client.gui.screens.Screen 2>&1 | grep -iE 'shift|key' | head
-          echo "=== Minecraft shift"; javap -cp "$CP" net.minecraft.client.Minecraft 2>&1 | grep -iE 'shift|control' | head
-          echo "=== BlockState rot"; javap -cp "$CP" net.minecraft.world.level.block.state.BlockState 2>&1 | grep -iE 'rotate|mirror' | head
-          echo "=== Rotation"; javap -cp "$CP" net.minecraft.world.level.block.Rotation 2>&1 | head -12
-          echo "=== NbtUtils"; javap -cp "$CP" net.minecraft.nbt.NbtUtils 2>&1 | grep -iE 'BlockState' | head
-          echo "=== BlockStateParser"; javap -cp "$CP" net.minecraft.commands.arguments.blocks.BlockStateParser 2>&1 | grep -E 'public static' | head
+          echo "=== RP"; jar tf "$JAR" | grep -E 'RenderPipelines\.class'
+          javap -cp "$CP" net.minecraft.client.renderer.RenderPipelines 2>&1 | grep -iE 'GUI' | head -20
+          echo "=== blit full"; javap -cp "$CP" net.minecraft.client.gui.GuiGraphicsExtractor 2>&1 | grep -E 'blit'
+          echo "=== M3x2Stack"; javap -cp "$CP" org.joml.Matrix3x2fStack 2>&1 | head -20
+          echo "=== M3x2 mul"; javap -cp "$CP" org.joml.Matrix3x2f 2>&1 | grep -E ' mul\(|public org.joml.Matrix3x2f\(' | head
+          echo "=== Identifier"; javap -cp "$CP" net.minecraft.resources.Identifier 2>&1 | grep -E 'public static' | head
+          echo "=== Button sprites"; javap -p -cp "$CP" net.minecraft.client.gui.components.Button 2>&1 | grep -iE 'sprite|Identifier' | head
+          javap -p -cp "$CP" net.minecraft.client.gui.components.AbstractButton 2>&1 | grep -iE 'sprite|Identifier' | head
+          echo "=== tex files"; find ~/.gradle build -name 'oak_planks.png' 2>/dev/null | head -3
+          for J in $(find ~/.gradle build -name '*.jar' 2>/dev/null); do jar tf "$J" 2>/dev/null | grep -q 'textures/block/oak_planks.png' && echo "in $J"; done | head -3
