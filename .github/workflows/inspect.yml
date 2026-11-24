@@ -16,4 +16,8 @@ jobs:
           JAR=$(grep -l "net/minecraft/client/Minecraft.class" $(find build ~/.gradle -name '*.jar' 2>/dev/null) 2>/dev/null | head -1)
           echo "JAR=$JAR"
           CP="$JAR:$(find ~/.gradle build -name 'neoforge-*.jar' 2>/dev/null | tr '\n' ':')"
-          javap -cp "$CP" net.minecraft.client.gui.screens.Screen net.minecraft.client.gui.components.events.ContainerEventHandler net.minecraft.client.gui.components.events.GuiEventListener | grep -iE 'drop|file|path' 
+          javap -cp "$CP" net.minecraft.world.level.material.MapColor | grep -E 'public' | grep -vE 'static final net.minecraft.world.level.material.MapColor [A-Z_]+;' | head -20
+          javap -cp "$CP" net.minecraft.world.level.block.state.BlockBehaviour | grep -iE 'mapcolor' | head
+          javap -cp "$CP" net.minecraft.world.level.block.state.BlockBehaviour\$BlockStateBase | grep -iE 'mapcolor' | head
+          javap -cp "$CP" net.minecraft.util.Util | grep -iE 'platform|openUri|os' | head
+          javap -cp "$CP" 'net.minecraft.util.Util$OS' | grep -iE 'open' | head
