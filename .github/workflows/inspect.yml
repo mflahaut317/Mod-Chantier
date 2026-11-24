@@ -16,6 +16,13 @@ jobs:
           JAR=$(grep -l "net/minecraft/client/Minecraft.class" $(find build ~/.gradle -name '*.jar' 2>/dev/null) 2>/dev/null | head -1)
           echo "JAR=$JAR"
           CP="$JAR:$(find ~/.gradle build -name 'neoforge-*.jar' 2>/dev/null | tr '\n' ':')"
-          jar tf "$JAR" | grep -E 'net/minecraft/util/Util\$OS|ConfirmLinkScreen' | head
-          javap -cp "$CP" 'net.minecraft.util.Util$OS' | head -30
-          javap -cp "$CP" net.minecraft.client.gui.screens.ConfirmLinkScreen | grep -E 'public static' | head
+          echo "=== classes MC"
+          jar tf "$JAR" | grep -iE 'gizmo|ShapeRenderer|DebugRenderer|rendertype/RenderTypes|LevelRenderer\.class|SubmitNodeCollector\.class' | head -60
+          echo "=== classes NeoForge"
+          for J in $(find ~/.gradle build -name 'neoforge-*.jar' 2>/dev/null); do jar tf "$J" | grep -iE 'client/event/.*(Render|Level|Submit|Extract)' ; done | sort -u | head -60
+          echo "=== Gizmos"; javap -cp "$CP" net.minecraft.gizmos.Gizmos 2>&1 | head -60
+          echo "=== GizmoStyle"; javap -cp "$CP" net.minecraft.gizmos.GizmoStyle 2>&1 | head -40
+          echo "=== GizmoProperties"; javap -cp "$CP" net.minecraft.gizmos.GizmoProperties 2>&1 | head -20
+          echo "=== ShapeRenderer"; javap -cp "$CP" net.minecraft.client.renderer.ShapeRenderer 2>&1 | head -30
+          echo "=== RLSE"; javap -cp "$CP" net.neoforged.neoforge.client.event.RenderLevelStageEvent 2>&1 | head -60
+          echo "=== MouseButtonEvent"; javap -cp "$CP" net.minecraft.client.input.MouseButtonEvent 2>&1 | head
