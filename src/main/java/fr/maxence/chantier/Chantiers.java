@@ -33,6 +33,9 @@ public final class Chantiers {
     }
 
     /** Le chantier dont ce joueur est membre, ou null. */
+    /** Tous les chantiers (pour le tableau de bord). */
+    static List<Projet> tous() { return new ArrayList<>(PAR_ID.values()); }
+
     public static Projet de(UUID joueur) {
         for (Projet p : PAR_ID.values()) if (p.estMembre(joueur)) return p;
         return null;

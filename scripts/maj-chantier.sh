@@ -1,5 +1,5 @@
 #!/bin/bash
-# Met à jour les mods Chantier et Souvenirs sur le serveur et dans le pack des joueurs, en une commande :
+# Met à jour les mods Chantier, Souvenirs et Tableau sur le serveur et dans le pack des joueurs, en une commande :
 #
 #   ~/maj-chantier.sh
 #
@@ -10,7 +10,7 @@ PACK=~/survie-pack
 SERVEUR=~/survie
 DEPOT=mflahaut317/Mod-Chantier
 BASE="https://github.com/$DEPOT/releases/download/dernier"
-MODS=("chantier:Chantier" "souvenirs:Souvenirs")
+MODS=("chantier:Chantier" "souvenirs:Souvenirs" "tableau:Tableau")
 
 # 0. Mot de passe sudo demandé tout de suite (sinon le serveur pourrait rester arrêté si sudo expire)
 sudo -v || { echo "Mot de passe sudo refusé : rien n'a été fait."; exit 1; }
@@ -33,6 +33,8 @@ for MOD in "${MODS[@]}"; do
     echo "$NOM : $VERSION"
     packwiz remove "$ID" >/dev/null 2>&1 || true
     packwiz url add "$NOM" "$BASE/$ID-$VERSION.jar"
+    # Tableau : côté serveur seulement (les joueurs ne le téléchargent pas)
+    if [ "$ID" = "tableau" ] && [ -f mods/tableau.pw.toml ]; then sed -i 's/^side = .*/side = "server"/' mods/tableau.pw.toml; fi
     RESUME="$RESUME $NOM $VERSION"
 done
 packwiz refresh

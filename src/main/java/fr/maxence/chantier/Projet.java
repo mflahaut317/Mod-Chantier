@@ -221,6 +221,9 @@ public final class Projet {
     }
     public String titre() { return donnees.titre; }
 
+    /** Nombre de matériaux différents dans la liste. */
+    public int nombreMateriaux() { return besoins.size(); }
+
     public void definirTitre(String titre) { donnees.titre = titre; sauver(); }
 
     public void definirLien(String lien) {
