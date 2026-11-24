@@ -16,13 +16,10 @@ jobs:
           JAR=$(grep -l "net/minecraft/client/Minecraft.class" $(find build ~/.gradle -name '*.jar' 2>/dev/null) 2>/dev/null | head -1)
           echo "JAR=$JAR"
           CP="$JAR:$(find ~/.gradle build -name 'neoforge-*.jar' 2>/dev/null | tr '\n' ':')"
-          echo "=== RP"; jar tf "$JAR" | grep -E 'RenderPipelines\.class'
-          javap -cp "$CP" net.minecraft.client.renderer.RenderPipelines 2>&1 | grep -iE 'GUI' | head -20
-          echo "=== blit full"; javap -cp "$CP" net.minecraft.client.gui.GuiGraphicsExtractor 2>&1 | grep -E 'blit'
-          echo "=== M3x2Stack"; javap -cp "$CP" org.joml.Matrix3x2fStack 2>&1 | head -20
-          echo "=== M3x2 mul"; javap -cp "$CP" org.joml.Matrix3x2f 2>&1 | grep -E ' mul\(|public org.joml.Matrix3x2f\(' | head
-          echo "=== Identifier"; javap -cp "$CP" net.minecraft.resources.Identifier 2>&1 | grep -E 'public static' | head
-          echo "=== Button sprites"; javap -p -cp "$CP" net.minecraft.client.gui.components.Button 2>&1 | grep -iE 'sprite|Identifier' | head
-          javap -p -cp "$CP" net.minecraft.client.gui.components.AbstractButton 2>&1 | grep -iE 'sprite|Identifier' | head
-          echo "=== tex files"; find ~/.gradle build -name 'oak_planks.png' 2>/dev/null | head -3
-          for J in $(find ~/.gradle build -name '*.jar' 2>/dev/null); do jar tf "$J" 2>/dev/null | grep -q 'textures/block/oak_planks.png' && echo "in $J"; done | head -3
+          echo "=== Display"; javap -p -cp "$CP" net.minecraft.world.entity.Display 2>&1 | grep -E 'Display\(|set[A-Z]|DATA_|Transformation' | head -40
+          echo "=== BlockDisplay"; javap -p -cp "$CP" 'net.minecraft.world.entity.Display$BlockDisplay' 2>&1 | head -30
+          echo "=== ClientLevel"; javap -p -cp "$CP" net.minecraft.client.multiplayer.ClientLevel 2>&1 | grep -iE 'addEntity|removeEntity|getEntity\(' | head
+          echo "=== Entity id"; javap -p -cp "$CP" net.minecraft.world.entity.Entity 2>&1 | grep -E ' setId|void discard|setRemoved|void setPos\(double|setGlowingTag|noPhysics|setInvisible' | head
+          echo "=== Transformation"; javap -cp "$CP" com.mojang.math.Transformation 2>&1 | grep -E 'public com.mojang.math.Transformation\(|identity' | head
+          echo "=== EntityType BD"; javap -cp "$CP" net.minecraft.world.entity.EntityType 2>&1 | grep -E 'BLOCK_DISPLAY' | head -3
+          echo "=== Brightness"; javap -cp "$CP" 'net.minecraft.util.Brightness' 2>&1 | head -8
