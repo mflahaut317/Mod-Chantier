@@ -28,7 +28,7 @@ import net.neoforged.neoforge.client.network.ClientPacketDistributor;
  */
 public class GalerieScreen extends Screen {
     private static final int CARTE_L = 220;
-    private static final int CARTE_H = 64;
+    private static final int CARTE_H = 80;
     private static final int ECART = 6;
     private static final int LIGNE_MAT = 18;
     private static final int GRIS = 0xFFAAAAAA;
@@ -124,6 +124,18 @@ public class GalerieScreen extends Screen {
         if (detailId != null && e == null && derniere != null) detailId = null; // projet retiré entre-temps
 
         if (e == null) {
+            // Un bouton « Voir » par carte (le clic sur la carte entière marche aussi quand le jeu le transmet)
+            List<GaleriePayload.Entree> liste = entrees();
+            int c = colonnes();
+            int premier = defilement * c, fin = Math.min(liste.size(), premier + rangeesVisibles() * c);
+            for (int i = premier; i < fin; i++) {
+                String id = liste.get(i).id();
+                int k = i - premier;
+                int x = grilleGauche() + (k % c) * (CARTE_L + ECART);
+                int y = 36 + (k / c) * (CARTE_H + ECART);
+                addRenderableWidget(Button.builder(Component.literal("Voir la fiche"), b -> ouvrir(id))
+                        .bounds(x + CARTE_L - 84, y + CARTE_H - 22, 80, 18).build());
+            }
             addRenderableWidget(Button.builder(Component.literal("Mes schémas"),
                             b -> minecraft.gui.setScreen(new SchemaScreen(this)))
                     .bounds(width / 2 - 160, height - 28, 100, 20).build());
@@ -178,7 +190,9 @@ public class GalerieScreen extends Screen {
         GaleriePayload.Entree e = detail();
         if (e == null) {
             int rangees = (entrees().size() + colonnes() - 1) / colonnes();
+            int avant = defilement;
             defilement = Math.max(0, Math.min(Math.max(0, rangees - rangeesVisibles()), defilement + pas));
+            if (defilement != avant) rebuildWidgets();
         } else {
             int max = Math.max(0, e.lignes().size() - matVisibles(e));
             defilementMat = Math.max(0, Math.min(max, defilementMat + pas * 3));
@@ -220,17 +234,17 @@ public class GalerieScreen extends Screen {
             g.fill(x, y, x + CARTE_L, y + CARTE_H, dessus ? 0xC0303030 : 0xB0000000);
             if (dessus) cadre(g, x, y, CARTE_L, CARTE_H, OR);
 
-            g.fill(x + 4, y + 4, x + 60, y + 60, 0xFF202020);
-            dessinerImage(g, e, x + 4, y + 4, 56);
+            g.fill(x + 4, y + 4, x + 76, y + 76, 0xFF202020);
+            dessinerImage(g, e, x + 4, y + 4, 72);
 
-            int tx = x + 66, tl = CARTE_L - 70;
+            int tx = x + 82, tl = CARTE_L - 86;
             g.text(font, font.plainSubstrByWidth(e.nom(), tl), tx, y + 5, BLANC);
             g.text(font, font.plainSubstrByWidth("par " + e.auteur() + " · " + e.lignes().size() + " matériaux", tl), tx, y + 16, GRIS);
             if (e.description().isBlank()) {
                 g.text(font, "Pas de description", tx, y + 30, SOMBRE);
             } else {
                 int ly = y + 30;
-                for (String l : couper(font, e.description(), tl, 3)) { g.text(font, l, tx, ly, TEXTE); ly += 10; }
+                for (String l : couper(font, e.description(), tl, 2)) { g.text(font, l, tx, ly, TEXTE); ly += 10; }
             }
         }
         int rangees = (liste.size() + c - 1) / c;
