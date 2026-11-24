@@ -51,7 +51,7 @@ public class TutoScreen extends CadreScreen {
                 new Etape("Ce que veulent dire les couleurs", Items.GLASS, List.of(
                         Ligne.couleur(0xFF9EC0E8, "Couleur du bloc : encore à poser."),
                         Ligne.couleur(0xFFE04040, "Rouge : un autre bloc est à la place."),
-                        Ligne.de(Items.LIME_DYE, "Bien posé : le fantôme disparaît."),
+                        Ligne.de(Items.SLIME_BALL, "Bien posé : le fantôme disparaît."),
                         Ligne.de(Items.SPYGLASS, "Seuls les blocs à moins de 40 blocs s'affichent."))),
                 new Etape("Une couche à la fois", Items.SCAFFOLDING, List.of(
                         Ligne.de(Items.LADDER, "Couche - et Couche + : un seul étage affiché."),
