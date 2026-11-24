@@ -24,9 +24,11 @@ final class LecteurLitematic {
     private LecteurLitematic() {}
 
     /** Taille max de l'aperçu (en pixels de côté). */
-    static final int APERCU_MAX = 48;
+    static final int APERCU_MAX = 96;
+    /** Au-delà de ce volume, on ne garde pas tous les blocs en mémoire (pas d'aperçu). */
+    private static final long VOLUME_MAX = 6_000_000L;
 
-    /** Résultat : liste triée + vue du dessus (rgb, 0 = vide). */
+    /** Résultat : liste triée + aperçu 3D (rgb, 0 = vide). */
     record Lecture(Map<Item, Integer> blocs, int largeur, int hauteur, int[] pixels) {}
 
     /** Extensions lues : Litematica / BlockCompanion, WorldEdit (Sponge), structures / Create. */
@@ -35,48 +37,88 @@ final class LecteurLitematic {
         return n.endsWith(".litematic") || n.endsWith(".schem") || n.endsWith(".nbt");
     }
 
-    /** Vue du dessus : bloc le plus haut de chaque colonne, coloré comme sur une carte. */
+    /**
+     * Aperçu isométrique : chaque bloc est dessiné comme un petit cube (dessus clair, côtés plus sombres),
+     * vu en biais depuis le sud-est, de l'arrière vers l'avant.
+     */
     private static final class Apercu {
-        final int sx, sz;
-        final int[] hauteurs, couleurs;
-        int maxY = 1;
+        final int sx, sy, sz;
+        final int[] couleurs; // x + z*sx + y*sx*sz, 0 = vide
 
-        Apercu(int sx, int sz) {
+        Apercu(int sx, int sy, int sz) {
             this.sx = Math.max(1, sx);
+            this.sy = Math.max(1, sy);
             this.sz = Math.max(1, sz);
-            hauteurs = new int[this.sx * this.sz];
-            couleurs = new int[this.sx * this.sz];
-            java.util.Arrays.fill(hauteurs, -1);
+            long v = (long) this.sx * this.sy * this.sz;
+            couleurs = v <= VOLUME_MAX ? new int[(int) v] : null;
         }
 
         void bloc(int x, int y, int z, int rgb) {
-            if (rgb == 0 || x < 0 || z < 0 || x >= sx || z >= sz) return;
-            int i = x + z * sx;
-            if (y > hauteurs[i]) { hauteurs[i] = y; couleurs[i] = rgb; }
-            if (y > maxY) maxY = y;
+            if (couleurs == null || rgb == 0 || x < 0 || y < 0 || z < 0 || x >= sx || y >= sy || z >= sz) return;
+            couleurs[x + z * sx + y * sx * sz] = rgb;
         }
 
-        /** Réduit à APERCU_MAX de côté et assombrit selon la hauteur (relief). */
+        private static int teinte(int rgb, double f) {
+            int r = (int) (((rgb >> 16) & 255) * f), g = (int) (((rgb >> 8) & 255) * f), b = (int) ((rgb & 255) * f);
+            return Math.max(1, (r << 16) | (g << 8) | b);
+        }
+
         Lecture vers(Map<Item, Integer> blocs) {
-            int pas = Math.max(1, (int) Math.ceil(Math.max(sx, sz) / (double) APERCU_MAX));
-            int w = (sx + pas - 1) / pas, h = (sz + pas - 1) / pas;
-            int[] px = new int[w * h];
-            for (int cz = 0; cz < h; cz++) {
-                for (int cx = 0; cx < w; cx++) {
-                    int meilleur = -1, couleur = 0;
-                    for (int z = cz * pas; z < Math.min(sz, (cz + 1) * pas); z++) {
-                        for (int x = cx * pas; x < Math.min(sx, (cx + 1) * pas); x++) {
-                            int i = x + z * sx;
-                            if (hauteurs[i] > meilleur) { meilleur = hauteurs[i]; couleur = couleurs[i]; }
+            if (couleurs == null) return new Lecture(blocs, 0, 0, new int[0]);
+            // Chaque bloc : losange de 4x2 pour le dessus + 2 côtés de 2x2
+            int w = (sx + sz) * 2 + 2, h = (sx + sz) + sy * 2 + 4;
+            int[] img = new int[w * h];
+            for (int somme = 0; somme <= sx + sz - 2; somme++) { // de l'arrière (x+z petit) vers l'avant
+                for (int y = 0; y < sy; y++) {                    // puis de bas en haut
+                    for (int x = Math.max(0, somme - sz + 1); x <= Math.min(sx - 1, somme); x++) {
+                        int z = somme - x;
+                        int c = couleurs[x + z * sx + y * sx * sz];
+                        if (c == 0) continue;
+                        int px = (x - z) * 2 + sz * 2 - 2;
+                        int py = (x + z) - y * 2 + sy * 2;
+                        int dessus = c, gauche = teinte(c, 0.78), droite = teinte(c, 0.6);
+                        poser(img, w, h, px + 1, py, dessus); poser(img, w, h, px + 2, py, dessus);
+                        for (int i = 0; i < 4; i++) poser(img, w, h, px + i, py + 1, dessus);
+                        for (int j = 2; j < 4; j++) {
+                            poser(img, w, h, px, py + j, gauche); poser(img, w, h, px + 1, py + j, gauche);
+                            poser(img, w, h, px + 2, py + j, droite); poser(img, w, h, px + 3, py + j, droite);
                         }
                     }
-                    if (meilleur < 0) continue;
-                    double f = 0.6 + 0.4 * meilleur / (double) maxY;
-                    int r = (int) (((couleur >> 16) & 255) * f), g = (int) (((couleur >> 8) & 255) * f), b = (int) ((couleur & 255) * f);
-                    px[cx + cz * w] = Math.max(1, (r << 16) | (g << 8) | b);
                 }
             }
-            return new Lecture(blocs, w, h, px);
+            return recadrer(blocs, img, w, h);
+        }
+
+        private static void poser(int[] img, int w, int h, int x, int y, int c) {
+            if (x >= 0 && y >= 0 && x < w && y < h) img[x + y * w] = c;
+        }
+
+        /** Coupe les bords vides puis réduit à APERCU_MAX (moyenne des pixels non vides). */
+        private static Lecture recadrer(Map<Item, Integer> blocs, int[] img, int w, int h) {
+            int x0 = w, y0 = h, x1 = -1, y1 = -1;
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
+                if (img[x + y * w] == 0) continue;
+                x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+            }
+            if (x1 < 0) return new Lecture(blocs, 0, 0, new int[0]);
+            int cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+            double pas = Math.max(1.0, Math.max(cw, ch) / (double) APERCU_MAX);
+            int ow = Math.max(1, (int) Math.ceil(cw / pas)), oh = Math.max(1, (int) Math.ceil(ch / pas));
+            int[] out = new int[ow * oh];
+            for (int oy = 0; oy < oh; oy++) for (int ox = 0; ox < ow; ox++) {
+                long r = 0, g = 0, b = 0; int n = 0;
+                int ax = x0 + (int) (ox * pas), bx = Math.min(x1 + 1, x0 + (int) ((ox + 1) * pas));
+                int ay = y0 + (int) (oy * pas), by = Math.min(y1 + 1, y0 + (int) ((oy + 1) * pas));
+                for (int y = ay; y < Math.max(by, ay + 1); y++) for (int x = ax; x < Math.max(bx, ax + 1); x++) {
+                    int c = img[x + y * w];
+                    if (c == 0) continue;
+                    r += (c >> 16) & 255; g += (c >> 8) & 255; b += c & 255; n++;
+                }
+                // Pixel gardé seulement s'il est majoritairement plein (contours nets)
+                int cellule = Math.max(1, (Math.max(by, ay + 1) - ay) * (Math.max(bx, ax + 1) - ax));
+                if (n * 2 >= cellule) out[ox + oy * ow] = Math.max(1, (int) ((r / n) << 16 | (g / n) << 8 | (b / n)));
+            }
+            return new Lecture(blocs, ow, oh, out);
         }
     }
 
@@ -127,7 +169,7 @@ final class LecteurLitematic {
         for (int i = 0; i < palette.size(); i++) couleurs[i] = couleur(palette.getCompoundOrEmpty(i).getStringOr("Name", ""));
         Apercu dessin = null;
         if (volume > plusGrand) {
-            dessin = new Apercu(sx, sz);
+            dessin = new Apercu(sx, sy, sz);
             apercu[0] = dessin;
         }
 
@@ -182,6 +224,7 @@ final class LecteurLitematic {
         }
         if (palette.isEmpty() || donnees.length == 0) return;
         int largeur = schema.getShortOr("Width", (short) 0) & 0xFFFF;
+        int hauteurSchema = schema.getShortOr("Height", (short) 0) & 0xFFFF;
         int longueur = schema.getShortOr("Length", (short) 0) & 0xFFFF;
 
         Map<Integer, String> parIndex = new HashMap<>();
@@ -192,7 +235,7 @@ final class LecteurLitematic {
             int crochet = nom.indexOf('[');
             couleurs.put(e.getKey(), couleur(crochet >= 0 ? nom.substring(0, crochet) : nom));
         }
-        Apercu dessin = largeur > 0 && longueur > 0 ? new Apercu(largeur, longueur) : null;
+        Apercu dessin = largeur > 0 && longueur > 0 ? new Apercu(largeur, hauteurSchema, longueur) : null;
         apercu[0] = dessin;
 
         Map<Integer, Long> compte = new HashMap<>();
@@ -246,7 +289,7 @@ final class LecteurLitematic {
         ListTag blocs = racine.getListOrEmpty("blocks");
         if (palette.isEmpty() || blocs.isEmpty()) return;
         ListTag taille = racine.getListOrEmpty("size");
-        Apercu dessin = taille.size() == 3 ? new Apercu(taille.getIntOr(0, 0), taille.getIntOr(2, 0)) : null;
+        Apercu dessin = taille.size() == 3 ? new Apercu(taille.getIntOr(0, 0), taille.getIntOr(1, 0), taille.getIntOr(2, 0)) : null;
         apercu[0] = dessin;
         int[] couleurs = new int[palette.size()];
         for (int i = 0; i < palette.size(); i++) couleurs[i] = couleur(palette.getCompoundOrEmpty(i).getStringOr("Name", ""));

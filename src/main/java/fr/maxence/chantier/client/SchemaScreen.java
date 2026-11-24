@@ -39,7 +39,7 @@ public class SchemaScreen extends Screen {
     private String message = "";
 
     public SchemaScreen(Screen parent) {
-        super(Component.literal("Importer un schéma"));
+        super(Component.literal("Mes schémas"));
         this.parent = parent;
     }
 
@@ -77,14 +77,11 @@ public class SchemaScreen extends Screen {
                     .bounds(gauche + LARGEUR - 66, y, 66, 20).build());
             y += HAUTEUR_LIGNE;
         }
-        addRenderableWidget(Button.builder(Component.literal("Galerie commune"),
-                        b -> minecraft.gui.setScreen(new GalerieScreen(this)))
-                .bounds(width / 2 - 155, height - 28, 100, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Retour"), b -> onClose())
-                .bounds(width / 2 - 50, height - 28, 100, 20).build());
+                .bounds(width / 2 - 105, height - 28, 100, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Trouver des schémas"),
                         ConfirmLinkScreen.confirmLink(this, URI.create("https://www.minecraft-schematics.com/")))
-                .bounds(width / 2 + 55, height - 28, 110, 20).build());
+                .bounds(width / 2 + 5, height - 28, 110, 20).build());
     }
 
     private void importer(Path fichier) {
@@ -127,7 +124,7 @@ public class SchemaScreen extends Screen {
             }
             String nom = fichier.getFileName().toString().replaceAll("(?i)\\.(litematic|schem|nbt)$", "");
             ClientPacketDistributor.sendToServer(new fr.maxence.chantier.PartagePayload(new GaleriePayload.Entree(
-                    "", nom, "", lecture.largeur(), lecture.hauteur(), rgb, lignes)));
+                    "", nom, "", lecture.largeur(), lecture.hauteur(), fr.maxence.chantier.Images.compresser(rgb), lignes)));
             return "Envoi de « " + nom + " » dans la galerie commune…";
         } catch (IOException | RuntimeException e) {
             return "Lecture impossible : " + e.getMessage();
@@ -173,7 +170,7 @@ public class SchemaScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
         super.extractRenderState(g, mouseX, mouseY, delta);
-        String titre = "Importer un schéma (" + fichiers.size() + ")";
+        String titre = "Mes schémas (" + fichiers.size() + ")";
         g.text(font, titre, width / 2 - font.width(titre) / 2, 10, OR);
         String aide = "Clique sur un schéma, ou glisse un .litematic / .schem / .nbt dans la fenêtre";
         g.text(font, font.plainSubstrByWidth(aide, width - 20), width / 2 - Math.min(font.width(aide), width - 20) / 2, 22, GRIS);

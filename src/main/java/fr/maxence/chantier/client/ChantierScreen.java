@@ -141,7 +141,7 @@ public class ChantierScreen extends Screen {
                 b -> minecraft.gui.setScreen(new ListeScreen(this)))
                 .bounds(gauche, haut + 212, 92, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Importer un schéma"),
-                b -> minecraft.gui.setScreen(new SchemaScreen(this)))
+                b -> minecraft.gui.setScreen(new GalerieScreen(this)))
                 .bounds(gauche + 96, haut + 212, 98, 20).build());
     }
 

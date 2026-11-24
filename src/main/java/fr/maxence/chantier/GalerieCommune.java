@@ -27,7 +27,6 @@ public final class GalerieCommune {
     private GalerieCommune() {}
 
     private static final int MAX_ENTREES = 300;
-    private static final int APERCU_MAX = 64;
     private static final Gson GSON = new GsonBuilder().create();
 
     private static final class Projet {
@@ -36,7 +35,7 @@ public final class GalerieCommune {
         String auteur;
         int largeur;
         int hauteur;
-        String apercu; // base64
+        String apercu; // base64 du RGB compressé (Images.compresser)
         Map<String, Integer> lignes = new LinkedHashMap<>();
     }
 
@@ -48,8 +47,7 @@ public final class GalerieCommune {
 
     /** Ajoute (ou remplace, même nom + même auteur) un projet partagé. @return message pour le joueur */
     static String partager(ServerPlayer joueur, GaleriePayload.Entree e) {
-        if (e.largeur() < 0 || e.hauteur() < 0 || e.largeur() > APERCU_MAX || e.hauteur() > APERCU_MAX
-                || e.apercu().length != e.largeur() * e.hauteur() * 3) {
+        if (e.largeur() > 0 && Images.decompresser(e.apercu(), e.largeur() * e.hauteur() * 3) == null) {
             return "Aperçu invalide.";
         }
         Projet p = new Projet();
@@ -70,6 +68,20 @@ public final class GalerieCommune {
         PROJETS.add(0, p);
         sauver();
         return "« " + p.nom + " » partagé dans la galerie commune.";
+    }
+
+    /** Remplace l'aperçu d'un projet par une image envoyée par un joueur. */
+    static String definirImage(ImagePayload image) {
+        if (Images.decompresser(image.image(), image.largeur() * image.hauteur() * 3) == null) return "Image invalide.";
+        for (Projet p : PROJETS) {
+            if (!p.id.equals(image.id())) continue;
+            p.largeur = image.largeur();
+            p.hauteur = image.hauteur();
+            p.apercu = Base64.getEncoder().encodeToString(image.image());
+            sauver();
+            return "Image de « " + p.nom + " » mise à jour.";
+        }
+        return "Ce projet n'est plus dans la galerie.";
     }
 
     static boolean supprimer(String id) {
@@ -100,7 +112,7 @@ public final class GalerieCommune {
             for (Map.Entry<String, Integer> e : p.lignes.entrySet()) lignes.add(new EtatPayload.Ligne(e.getKey(), e.getValue(), 0));
             byte[] apercu;
             try { apercu = Base64.getDecoder().decode(p.apercu == null ? "" : p.apercu); } catch (IllegalArgumentException ex) { apercu = new byte[0]; }
-            boolean ok = apercu.length == p.largeur * p.hauteur * 3;
+            boolean ok = p.largeur > 0 && Images.decompresser(apercu, p.largeur * p.hauteur * 3) != null;
             entrees.add(new GaleriePayload.Entree(p.id, p.nom, p.auteur, ok ? p.largeur : 0, ok ? p.hauteur : 0,
                     ok ? apercu : new byte[0], lignes));
         }

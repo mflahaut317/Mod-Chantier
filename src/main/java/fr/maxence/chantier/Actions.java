@@ -147,6 +147,13 @@ public final class Actions {
         repondre(joueur, message, false);
     }
 
+    /** Un joueur remplace l'aperçu d'un projet de la galerie par une image. */
+    static void image(ImagePayload paquet, IPayloadContext contexte) {
+        if (!(contexte.player() instanceof ServerPlayer joueur)) return;
+        joueur.sendSystemMessage(Component.literal(GalerieCommune.definirImage(paquet)));
+        GalerieCommune.envoyerA(joueur);
+    }
+
     /** Un joueur partage un schéma dans la galerie commune. */
     static void partager(PartagePayload paquet, IPayloadContext contexte) {
         if (!(contexte.player() instanceof ServerPlayer joueur)) return;
