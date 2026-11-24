@@ -60,7 +60,7 @@ public class ChantierScreen extends Screen {
         if (modeChantier) initChantier(); else initCreation();
 
         addRenderableWidget(Button.builder(Component.literal("Fermer"), b -> onClose())
-                .bounds(gauche + 198, haut + 212, 92, 20).build());
+                .bounds(modeChantier ? gauche + 246 : gauche + 198, haut + 212, modeChantier ? 44 : 92, 20).build());
 
         dernierAffiche = null;
         remplirDepuisConfig();
@@ -137,12 +137,15 @@ public class ChantierScreen extends Screen {
             }
         }).bounds(gauche + 219, haut + 148, 71, 20).build());
 
-        addRenderableWidget(Button.builder(Component.literal("Liste complète"),
+        addRenderableWidget(Button.builder(Component.literal("Liste"),
                 b -> minecraft.gui.setScreen(new ListeScreen(this)))
-                .bounds(gauche, haut + 212, 92, 20).build());
+                .bounds(gauche, haut + 212, 52, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Importer un schéma"),
                 b -> minecraft.gui.setScreen(new GalerieScreen(this)))
-                .bounds(gauche + 96, haut + 212, 98, 20).build());
+                .bounds(gauche + 56, haut + 212, 100, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Sur le terrain"),
+                b -> minecraft.gui.setScreen(new HoloScreen(this)))
+                .bounds(gauche + 160, haut + 212, 82, 20).build());
     }
 
     private boolean enSelection() {

@@ -48,6 +48,11 @@ public class ChantierClient {
     }
 
     @SubscribeEvent
+    static void onTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
+        Hologramme.tick();
+    }
+
+    @SubscribeEvent
     static void onDeconnexion(ClientPlayerNetworkEvent.LoggingOut event) {
         EtatRecu.vider();
         ConfigRecue.vider();

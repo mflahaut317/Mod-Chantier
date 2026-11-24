@@ -72,7 +72,11 @@ public class SchemaScreen extends Screen {
             Path f = fichiers.get(i);
             String nom = dossier.relativize(f).toString();
             addRenderableWidget(Button.builder(Component.literal(nom), b -> importer(f))
-                    .bounds(gauche, y, LARGEUR - 70, 20).build());
+                    .bounds(gauche, y, LARGEUR - 130, 20).build());
+            addRenderableWidget(Button.builder(Component.literal("Terrain"), b -> {
+                String erreur = Hologramme.charger(f);
+                if (erreur == null) minecraft.gui.setScreen(new HoloScreen(this)); else message = erreur;
+            }).bounds(gauche + LARGEUR - 126, y, 56, 20).build());
             addRenderableWidget(Button.builder(Component.literal("Partager"), b -> partager(f))
                     .bounds(gauche + LARGEUR - 66, y, 66, 20).build());
             y += HAUTEUR_LIGNE;
@@ -100,6 +104,7 @@ public class SchemaScreen extends Screen {
             }
             String nom = fichier.getFileName().toString().replaceAll("(?i)\\.(litematic|schem|nbt)$", "");
             ClientPacketDistributor.sendToServer(new ImportPayload(nom, lignes));
+            Hologramme.dernierImporte = fichier;
             return null;
         } catch (IOException | RuntimeException e) {
             return "Lecture impossible : " + e.getMessage();

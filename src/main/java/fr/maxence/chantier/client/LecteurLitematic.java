@@ -28,6 +28,62 @@ final class LecteurLitematic {
     /** Au-delà de ce volume, on ne garde pas tous les blocs en mémoire (pas d'aperçu). */
     private static final long VOLUME_MAX = 6_000_000L;
 
+    /** Blocs gardés au plus pour l'hologramme (au-delà, le reste n'est pas affiché). */
+    static final int PLAN_MAX = 400_000;
+
+    /** Position et type de chaque bloc, pour l'hologramme sur le terrain. */
+    static final class Plan {
+        int[] pos = new int[3 * 1024];   // x, y, z à la suite
+        Block[] blocs = new Block[1024];
+        int n;
+        int sx, sy, sz;
+        boolean tronque;
+
+        void ajouter(int x, int y, int z, Block b) {
+            if (b == null) return;
+            if (n >= PLAN_MAX) { tronque = true; return; }
+            if (n == blocs.length) {
+                blocs = java.util.Arrays.copyOf(blocs, n * 2);
+                pos = java.util.Arrays.copyOf(pos, n * 6);
+            }
+            pos[n * 3] = x; pos[n * 3 + 1] = y; pos[n * 3 + 2] = z;
+            blocs[n++] = b;
+        }
+
+        /** Ramène le coin le plus bas à 0,0,0 et calcule la taille. */
+        void normaliser() {
+            if (n == 0) return;
+            int[] min = {Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE};
+            int[] max = {Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE};
+            for (int i = 0; i < n; i++) for (int k = 0; k < 3; k++) {
+                min[k] = Math.min(min[k], pos[i * 3 + k]);
+                max[k] = Math.max(max[k], pos[i * 3 + k]);
+            }
+            for (int i = 0; i < n; i++) for (int k = 0; k < 3; k++) pos[i * 3 + k] -= min[k];
+            sx = max[0] - min[0] + 1; sy = max[1] - min[1] + 1; sz = max[2] - min[2] + 1;
+        }
+    }
+
+    /** Lit seulement les blocs et leurs positions, pour l'hologramme. */
+    static Plan lirePlan(Path fichier) throws IOException {
+        Plan plan = new Plan();
+        lire(fichier, plan);
+        plan.normaliser();
+        return plan;
+    }
+
+    /** Bloc à afficher en hologramme (null : air, eau, lave, vide de structure). */
+    private static Block blocPour(String nom) {
+        int crochet = nom.indexOf('[');
+        if (crochet >= 0) nom = nom.substring(0, crochet);
+        if (nom.endsWith("air") || nom.equals("minecraft:water") || nom.equals("minecraft:lava")
+                || nom.equals("minecraft:structure_void")) return null;
+        Identifier id = Identifier.tryParse(nom);
+        if (id == null || !BuiltInRegistries.BLOCK.containsKey(id)) return null;
+        Block b = BuiltInRegistries.BLOCK.getValue(id);
+        return b == Blocks.AIR ? null : b;
+    }
+
     /** Résultat : liste triée + aperçu 3D (rgb, 0 = vide). */
     record Lecture(Map<Item, Integer> blocs, int largeur, int hauteur, int[] pixels) {}
 
@@ -124,19 +180,23 @@ final class LecteurLitematic {
 
     /** Lit le fichier : liste triée par quantité + aperçu. */
     static Lecture lire(Path fichier) throws IOException {
+        return lire(fichier, null);
+    }
+
+    private static Lecture lire(Path fichier, Plan plan) throws IOException {
         CompoundTag racine = NbtIo.readCompressed(fichier, NbtAccounter.unlimitedHeap());
         Map<Item, Integer> total = new HashMap<>();
         Apercu[] apercu = new Apercu[1];
         String nomFichier = fichier.getFileName().toString().toLowerCase();
         if (nomFichier.endsWith(".schem")) {
-            lireSponge(racine, total, apercu);
+            lireSponge(racine, total, apercu, plan);
         } else if (nomFichier.endsWith(".nbt")) {
-            lireStructure(racine, total, apercu);
+            lireStructure(racine, total, apercu, plan);
         } else {
             CompoundTag regions = racine.getCompoundOrEmpty("Regions");
             long plusGrand = 0;
             for (String nom : regions.keySet()) {
-                plusGrand = Math.max(plusGrand, lireRegion(regions.getCompoundOrEmpty(nom), total, apercu, plusGrand));
+                plusGrand = Math.max(plusGrand, lireRegion(regions.getCompoundOrEmpty(nom), total, apercu, plusGrand, plan));
             }
         }
         Map<Item, Integer> trie = new LinkedHashMap<>();
@@ -157,8 +217,13 @@ final class LecteurLitematic {
     }
 
     /** @return le volume de la région (l'aperçu est fait sur la plus grande) */
-    private static long lireRegion(CompoundTag region, Map<Item, Integer> total, Apercu[] apercu, long plusGrand) {
+    private static long lireRegion(CompoundTag region, Map<Item, Integer> total, Apercu[] apercu, long plusGrand, Plan plan) {
         CompoundTag taille = region.getCompoundOrEmpty("Size");
+        CompoundTag position = region.getCompoundOrEmpty("Position");
+        // Une taille négative veut dire que la région s'étend vers les coordonnées plus petites
+        int ox = position.getIntOr("x", 0) + Math.min(0, taille.getIntOr("x", 0) + 1);
+        int oy = position.getIntOr("y", 0) + Math.min(0, taille.getIntOr("y", 0) + 1);
+        int oz = position.getIntOr("z", 0) + Math.min(0, taille.getIntOr("z", 0) + 1);
         int sx = Math.abs(taille.getIntOr("x", 0)), sy = Math.abs(taille.getIntOr("y", 0)), sz = Math.abs(taille.getIntOr("z", 0));
         long volume = (long) sx * sy * sz;
         ListTag palette = region.getListOrEmpty("BlockStatePalette");
@@ -167,8 +232,10 @@ final class LecteurLitematic {
 
         int[] couleurs = new int[palette.size()];
         for (int i = 0; i < palette.size(); i++) couleurs[i] = couleur(palette.getCompoundOrEmpty(i).getStringOr("Name", ""));
+        Block[] typesPalette = new Block[palette.size()];
+        if (plan != null) for (int i = 0; i < palette.size(); i++) typesPalette[i] = blocPour(palette.getCompoundOrEmpty(i).getStringOr("Name", ""));
         Apercu dessin = null;
-        if (volume > plusGrand) {
+        if (plan == null && volume > plusGrand) {
             dessin = new Apercu(sx, sy, sz);
             apercu[0] = dessin;
         }
@@ -192,6 +259,9 @@ final class LecteurLitematic {
             if (dessin != null) {
                 dessin.bloc((int) (i % sx), (int) (i / couche), (int) ((i / sx) % sz), couleurs[(int) valeur]);
             }
+            if (plan != null && typesPalette[(int) valeur] != null) {
+                plan.ajouter(ox + (int) (i % sx), oy + (int) (i / couche), oz + (int) ((i / sx) % sz), typesPalette[(int) valeur]);
+            }
         }
 
         for (int i = 0; i < palette.size(); i++) {
@@ -210,7 +280,7 @@ final class LecteurLitematic {
      * Format .schem de WorldEdit (Sponge v2 et v3) : une palette « minecraft:oak_stairs[facing=east] » -> index,
      * et les blocs encodés en varints (ordre x, puis z, puis y).
      */
-    private static void lireSponge(CompoundTag racine, Map<Item, Integer> total, Apercu[] apercu) {
+    private static void lireSponge(CompoundTag racine, Map<Item, Integer> total, Apercu[] apercu, Plan plan) {
         CompoundTag schema = racine.contains("Schematic") ? racine.getCompoundOrEmpty("Schematic") : racine;
         CompoundTag palette;
         byte[] donnees;
@@ -235,7 +305,9 @@ final class LecteurLitematic {
             int crochet = nom.indexOf('[');
             couleurs.put(e.getKey(), couleur(crochet >= 0 ? nom.substring(0, crochet) : nom));
         }
-        Apercu dessin = largeur > 0 && longueur > 0 ? new Apercu(largeur, hauteurSchema, longueur) : null;
+        Map<Integer, Block> types = new HashMap<>();
+        if (plan != null) for (Map.Entry<Integer, String> e : parIndex.entrySet()) types.put(e.getKey(), blocPour(e.getValue()));
+        Apercu dessin = plan == null && largeur > 0 && longueur > 0 ? new Apercu(largeur, hauteurSchema, longueur) : null;
         apercu[0] = dessin;
 
         Map<Integer, Long> compte = new HashMap<>();
@@ -254,6 +326,11 @@ final class LecteurLitematic {
                 long couche = (long) largeur * longueur;
                 dessin.bloc((int) (position % largeur), (int) (position / couche), (int) ((position / largeur) % longueur),
                         couleurs.getOrDefault(valeur, 0));
+            }
+            if (plan != null && largeur > 0 && longueur > 0) {
+                long couche = (long) largeur * longueur;
+                plan.ajouter((int) (position % largeur), (int) (position / couche), (int) ((position / largeur) % longueur),
+                        types.get(valeur));
             }
             position++;
         }
@@ -280,7 +357,7 @@ final class LecteurLitematic {
     }
 
     /** Format .nbt (bloc de structure, Create) : « palette » de blocs et liste « blocks » avec « state » et « pos ». */
-    private static void lireStructure(CompoundTag racine, Map<Item, Integer> total, Apercu[] apercu) {
+    private static void lireStructure(CompoundTag racine, Map<Item, Integer> total, Apercu[] apercu, Plan plan) {
         ListTag palette = racine.getListOrEmpty("palette");
         if (palette.isEmpty()) {
             ListTag palettes = racine.getListOrEmpty("palettes"); // variantes : on prend la première
@@ -289,10 +366,12 @@ final class LecteurLitematic {
         ListTag blocs = racine.getListOrEmpty("blocks");
         if (palette.isEmpty() || blocs.isEmpty()) return;
         ListTag taille = racine.getListOrEmpty("size");
-        Apercu dessin = taille.size() == 3 ? new Apercu(taille.getIntOr(0, 0), taille.getIntOr(1, 0), taille.getIntOr(2, 0)) : null;
+        Apercu dessin = plan == null && taille.size() == 3 ? new Apercu(taille.getIntOr(0, 0), taille.getIntOr(1, 0), taille.getIntOr(2, 0)) : null;
         apercu[0] = dessin;
         int[] couleurs = new int[palette.size()];
         for (int i = 0; i < palette.size(); i++) couleurs[i] = couleur(palette.getCompoundOrEmpty(i).getStringOr("Name", ""));
+        Block[] typesPalette = new Block[palette.size()];
+        if (plan != null) for (int i = 0; i < palette.size(); i++) typesPalette[i] = blocPour(palette.getCompoundOrEmpty(i).getStringOr("Name", ""));
 
         long[] compte = new long[palette.size()];
         for (int i = 0; i < blocs.size(); i++) {
@@ -304,6 +383,7 @@ final class LecteurLitematic {
             if (dessin != null && pos.size() == 3) {
                 dessin.bloc(pos.getIntOr(0, 0), pos.getIntOr(1, 0), pos.getIntOr(2, 0), couleurs[etat]);
             }
+            if (plan != null && pos.size() == 3) plan.ajouter(pos.getIntOr(0, 0), pos.getIntOr(1, 0), pos.getIntOr(2, 0), typesPalette[etat]);
         }
         for (int i = 0; i < palette.size(); i++) {
             if (compte[i] == 0) continue;
