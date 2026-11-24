@@ -92,8 +92,6 @@ final class Scene {
         for (int y = 0; y < g.sy(); y++) for (int z = 0; z < g.sz(); z++) for (int x = 0; x < g.sx(); x++) {
             int v = g.bloc(x, y, z);
             if (v == 0 || g.palette()[v] == null) continue;
-            if (g.bloc(x + 1, y, z) != 0 && g.bloc(x - 1, y, z) != 0 && g.bloc(x, y + 1, z) != 0
-                    && g.bloc(x, y - 1, z) != 0 && g.bloc(x, y, z + 1) != 0 && g.bloc(x, y, z - 1) != 0) continue;
             int rx, rz;
             switch (rotation & 3) {
                 case 1 -> { rx = g.sz() - 1 - z; rz = x; }
@@ -101,10 +99,24 @@ final class Scene {
                 case 3 -> { rx = z; rz = g.sx() - 1 - x; }
                 default -> { rx = x; rz = z; }
             }
+            // On ne voit que le dessus, la face sud et la face est : caché si ces trois voisins sont pleins
+            if (plein(g, rotation, rx, y + 1, rz) && plein(g, rotation, rx + 1, y, rz) && plein(g, rotation, rx, y, rz + 1)) continue;
             s.blocReel(rx, y, rz, g.palette()[v]);
             if (++n >= 12_000) return s;
         }
         return s;
+    }
+
+    /** Case pleine, en coordonnées tournées (inverse de la rotation de depuis()). */
+    private static boolean plein(Volume.Grille g, int rotation, int rx, int y, int rz) {
+        int x, z;
+        switch (rotation & 3) {
+            case 1 -> { x = rz; z = g.sz() - 1 - rx; }
+            case 2 -> { x = g.sx() - 1 - rx; z = g.sz() - 1 - rz; }
+            case 3 -> { x = g.sx() - 1 - rz; z = rx; }
+            default -> { x = rx; z = rz; }
+        }
+        return g.bloc(x, y, z) != 0;
     }
 
     /** Bloc du jeu avec sa texture si on la trouve, sinon sa couleur de carte. */

@@ -72,6 +72,11 @@ public final class HoloServeur {
         joueur.sendSystemMessage(Component.literal("§aHologramme partagé avec le groupe."));
     }
 
+    /** Déconnexion : un envoi interrompu ne reste pas en mémoire. */
+    public static void oublier(UUID joueur) {
+        RECEPTION.remove(joueur);
+    }
+
     /** valeur : x;y;z;rotation;dimension — déplacé ou tourné par un membre. */
     static void position(ServerPlayer joueur, Projet projet, String valeur) {
         Projet.Sauvegarde d = projet.donnees();

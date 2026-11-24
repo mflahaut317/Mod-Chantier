@@ -25,8 +25,8 @@ import org.joml.Vector3f;
 final class BlocsFantomes {
     private BlocsFantomes() {}
 
-    private static final int RAYON = 24;
-    private static final int MAX = 1500;
+    static final int RAYON = 24;
+    static final int MAX = 1500;
     private static final float TAILLE = 0.6f;
 
     private static boolean pret;
@@ -72,25 +72,18 @@ final class BlocsFantomes {
     }
 
     /**
-     * Met à jour les blocs autour du joueur. aPoser(i) : le bloc i doit être affiché ; faux(i) : un autre bloc gêne.
-     * Appelé quelques fois par seconde.
+     * Affiche exactement les blocs « voulus » (choisis par Hologramme autour du joueur) ; faux(i) : un autre bloc gêne.
+     * position(i) n'est appelé que pour les nouveaux blocs. Appelé quelques fois par seconde.
      */
-    static void mettreAJour(LecteurLitematic.Plan plan, String cleHologramme, java.util.function.IntPredicate aPoser,
-                            java.util.function.IntPredicate faux, java.util.function.IntFunction<int[]> position) {
+    static void mettreAJour(LecteurLitematic.Plan plan, String cleHologramme, Set<Integer> voulus,
+                            java.util.function.IntPredicate faux,
+                            java.util.function.IntFunction<net.minecraft.core.BlockPos> position) {
         preparer();
         Minecraft mc = Minecraft.getInstance();
         ClientLevel monde = mc.level;
         if (!disponible || monde == null || mc.player == null) return;
         if (!cleHologramme.equals(cle)) { vider(); cle = cleHologramme; } // déplacé ou tourné : on refait tout
 
-        int px = mc.player.getBlockX(), py = mc.player.getBlockY(), pz = mc.player.getBlockZ();
-        Set<Integer> voulus = new HashSet<>();
-        for (int i = 0; i < plan.n && voulus.size() < MAX; i++) {
-            int[] p = position.apply(i);
-            int dx = p[0] - px, dy = p[1] - py, dz = p[2] - pz;
-            if (dx * dx + dy * dy + dz * dz > RAYON * RAYON) continue;
-            if (aPoser.test(i)) voulus.add(i);
-        }
         // Retirer ceux qui ne servent plus (bien posés, trop loin, autre couche)
         ACTIFS.entrySet().removeIf(e -> {
             if (voulus.contains(e.getKey())) return false;
@@ -115,7 +108,7 @@ final class BlocsFantomes {
         }
     }
 
-    private static Display.BlockDisplay creer(ClientLevel monde, Block bloc, int[] p) {
+    private static Display.BlockDisplay creer(ClientLevel monde, Block bloc, net.minecraft.core.BlockPos p) {
         try {
             Display.BlockDisplay d = new Display.BlockDisplay(type, monde);
             d.setId(prochainId--);
@@ -125,7 +118,7 @@ final class BlocsFantomes {
                     new Vector3f(TAILLE, TAILLE, TAILLE), new Quaternionf()));
             setGlowColorOverride.invoke(d, 0xFF3030);
             setShadowRadius.invoke(d, 0f);
-            d.setPos(p[0], p[1], p[2]);
+            d.setPos(p.getX(), p.getY(), p.getZ());
             monde.addEntity(d);
             return d;
         } catch (ReflectiveOperationException | RuntimeException e) {

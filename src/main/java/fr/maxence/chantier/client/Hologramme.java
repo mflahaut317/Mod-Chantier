@@ -52,9 +52,10 @@ final class Hologramme {
     /** Bloc fantôme visé par le joueur (-1 : aucun) et ce qui se trouve à sa place. */
     static int vise = -1;
     static boolean viseFaux;
-    /** Position monde -> n° du bloc, recalculé quand l'hologramme bouge. */
-    private static final java.util.HashMap<Long, Integer> INDEX = new java.util.HashMap<>();
-    private static String cleIndex = "";
+    /** Index compact du plan (construit une fois par schéma). */
+    private static IndexPlan index;
+    /** Statistiques calculées par tranches (pas tout d'un coup) : position, compteurs en cours. */
+    private static int statPos, statBons, statVus;
 
     /** Hologramme du chantier, partagé avec tout le groupe (reçu du serveur). */
     static boolean partage;
@@ -255,7 +256,7 @@ final class Hologramme {
     static void basculerVisible() { visible = !visible; apresChangement(); }
 
     private static void apresChangement() {
-        compteur = 19;
+        statPos = 0; statBons = 0; statVus = 0;
         sauver();
     }
 
@@ -273,55 +274,60 @@ final class Hologramme {
             BlocsFantomes.vider();
             return;
         }
+        if (index == null || index.plan() != plan) { index = new IndexPlan(plan); statPos = 0; statBons = 0; statVus = 0; }
+        compteur++;
         if (!suivre) chercherVise(mc);
+        statistiquesParTranche(mc);
+
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        int px = mc.player.getBlockX(), py = mc.player.getBlockY(), pz = mc.player.getBlockZ();
+
         if (blocs && !suivre) {
             // Vrais blocs miniatures, mis à jour 4 fois par seconde
             if (compteur % 5 == 0) {
+                java.util.Set<Integer> voulus = new java.util.HashSet<>();
+                int r2 = BlocsFantomes.RAYON * BlocsFantomes.RAYON;
+                proches(mc, BlocsFantomes.RAYON, i -> {
+                    if (voulus.size() >= BlocsFantomes.MAX || (couche >= 0 && plan.pos[i * 3 + 1] != couche)) return;
+                    monde(i, pos);
+                    int dx = pos.getX() - px, dy = pos.getY() - py, dz = pos.getZ() - pz;
+                    if (dx * dx + dy * dy + dz * dz > r2 || !mc.level.isLoaded(pos)) return;
+                    if (mc.level.getBlockState(pos).getBlock() != plan.blocs[i]) voulus.add(i);
+                });
                 BlockPos.MutableBlockPos q = new BlockPos.MutableBlockPos();
-                BlocsFantomes.mettreAJour(plan, plan.n + "|" + origine.asLong() + "|" + rotation,
-                        i -> {
-                            if (couche >= 0 && plan.pos[i * 3 + 1] != couche) return false;
-                            monde(i, q);
-                            return mc.level.isLoaded(q) && mc.level.getBlockState(q).getBlock() != plan.blocs[i];
-                        },
+                BlocsFantomes.mettreAJour(plan, plan.n + "|" + origine.asLong() + "|" + rotation, voulus,
                         i -> {
                             BlockState a = mc.level.getBlockState(monde(i, q));
                             return !(a.isAir() || a.canBeReplaced());
                         },
-                        i -> { monde(i, q); return new int[]{q.getX(), q.getY(), q.getZ()}; });
+                        i -> monde(i, q));
             }
         } else {
             BlocsFantomes.vider();
         }
 
-        boolean stats = ++compteur % 20 == 0;
-        int bons = 0, vus = 0, dessines = 0;
-        int px = mc.player.getBlockX(), py = mc.player.getBlockY(), pz = mc.player.getBlockZ();
         int rayon2 = RAYON * RAYON;
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        int[] dessines = {0};
         try (Gizmos.TemporaryCollection ignored = mc.collectPerTickGizmos()) {
-            for (int i = 0; i < plan.n; i++) {
-                boolean bonneCouche = couche < 0 || plan.pos[i * 3 + 1] == couche;
-                if (!bonneCouche && !stats) continue;
+            if (blocs && !suivre) {
+                // Mode blocs : seul le bloc visé garde un cadre blanc
+                if (vise >= 0) {
+                    monde(vise, pos);
+                    Gizmos.cuboid(new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1),
+                            GizmoStyle.stroke(0xFFFFFFFF, 3.0f));
+                }
+                return;
+            }
+            java.util.function.IntConsumer dessiner = i -> {
+                if (dessines[0] >= DESSIN_MAX || (couche >= 0 && plan.pos[i * 3 + 1] != couche)) return;
                 monde(i, pos);
-                int dx = pos.getX() - px, dy = pos.getY() - py, dz = pos.getZ() - pz;
-                boolean proche = dx * dx + dy * dy + dz * dz <= rayon2;
-                if (!proche && !stats) continue;
-                if (!mc.level.isLoaded(pos)) continue;
+                int x = pos.getX(), y = pos.getY(), z = pos.getZ();
+                int dx = x - px, dy = y - py, dz = z - pz;
+                if (dx * dx + dy * dy + dz * dz > rayon2 || !mc.level.isLoaded(pos)) return;
                 BlockState actuel = mc.level.getBlockState(pos);
                 Block attendu = plan.blocs[i];
-                boolean bon = actuel.getBlock() == attendu;
-                if (stats) { vus++; if (bon) bons++; }
-                if (bon || !bonneCouche || !proche || dessines >= DESSIN_MAX) continue;
-                if (blocs && !suivre) {
-                    // Mode blocs : seul le bloc visé garde un cadre blanc
-                    if (i == vise) Gizmos.cuboid(new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1),
-                            GizmoStyle.stroke(0xFFFFFFFF, 3.0f));
-                    continue;
-                }
-
+                if (actuel.getBlock() == attendu) return;
                 boolean libre = actuel.isAir() || actuel.canBeReplaced();
-                int x = pos.getX(), y = pos.getY(), z = pos.getZ();
                 if (libre) {
                     int rgb = attendu.defaultMapColor().col;
                     if (rgb == 0) rgb = 0xC8DCFF; // verre et blocs sans couleur : bleu très clair
@@ -336,38 +342,78 @@ final class Hologramme {
                             GizmoStyle.strokeAndFill(0xFFFF3030, 2.0f, 0x50FF3030));
                     if (parDessus) p.setAlwaysOnTop();
                 }
-                dessines++;
+                dessines[0]++;
+            };
+            if (suivre) {
+                for (int i = 0; i < plan.n && dessines[0] < DESSIN_MAX; i++) dessiner.accept(i); // pendant la visée, tout bouge
+            } else {
+                proches(mc, RAYON, dessiner);
             }
         }
-        if (stats) { poses = bons; total = vus; }
+    }
+
+    /**
+     * Blocs posés / blocs visibles, calculés par tranches de 20 000 blocs par tick :
+     * même un énorme schéma ne bloque jamais le jeu, le compteur se met à jour en continu.
+     */
+    private static void statistiquesParTranche(Minecraft mc) {
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        int fin = Math.min(plan.n, statPos + 20_000);
+        for (int i = statPos; i < fin; i++) {
+            monde(i, p);
+            if (!mc.level.isLoaded(p)) continue;
+            statVus++;
+            if (mc.level.getBlockState(p).getBlock() == plan.blocs[i]) statBons++;
+        }
+        statPos = fin;
+        if (statPos >= plan.n) {
+            poses = statBons;
+            total = statVus;
+            statPos = 0; statBons = 0; statVus = 0;
+        }
     }
 
     /** Suit le regard (jusqu'à 24 blocs) et note le premier bloc fantôme pas encore bien posé. */
     private static void chercherVise(Minecraft mc) {
-        String cle = plan.n + "|" + origine.asLong() + "|" + rotation;
-        if (!cle.equals(cleIndex)) {
-            INDEX.clear();
-            BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
-            for (int i = 0; i < plan.n; i++) INDEX.put(monde(i, p).asLong(), i);
-            cleIndex = cle;
-        }
         net.minecraft.world.phys.Vec3 oeil = mc.player.getEyePosition();
         net.minecraft.world.phys.Vec3 dir = mc.player.getLookAngle();
         long dernier = Long.MIN_VALUE;
+        int[] l = new int[3];
         for (double t = 0.2; t <= 24; t += 0.1) {
             BlockPos bp = BlockPos.containing(oeil.add(dir.scale(t)));
             long cle2 = bp.asLong();
             if (cle2 == dernier) continue;
             dernier = cle2;
             BlockState actuel = mc.level.getBlockState(bp);
-            Integer i = INDEX.get(cle2);
-            if (i != null && (couche < 0 || plan.pos[i * 3 + 1] == couche) && actuel.getBlock() != plan.blocs[i]) {
+            versSchema(bp.getX(), bp.getY(), bp.getZ(), l);
+            int i = index.trouver(l[0], l[1], l[2]);
+            if (i >= 0 && (couche < 0 || plan.pos[i * 3 + 1] == couche) && actuel.getBlock() != plan.blocs[i]) {
                 vise = i;
                 viseFaux = !(actuel.isAir() || actuel.canBeReplaced());
                 return;
             }
             if (!actuel.isAir() && !actuel.canBeReplaced()) return; // un vrai bloc cache la suite
         }
+    }
+
+    /** Position du monde -> position dans le schéma (inverse de monde()). */
+    private static void versSchema(int wx, int wy, int wz, int[] sortie) {
+        int rx = wx - origine.getX(), rz = wz - origine.getZ();
+        int x, z;
+        switch (rotation) {
+            case 1 -> { x = rz; z = plan.sz - 1 - rx; }
+            case 2 -> { x = plan.sx - 1 - rx; z = plan.sz - 1 - rz; }
+            case 3 -> { x = plan.sx - 1 - rz; z = rx; }
+            default -> { x = rx; z = rz; }
+        }
+        sortie[0] = x; sortie[1] = wy - origine.getY(); sortie[2] = z;
+    }
+
+    /** Blocs du schéma à moins de rayon blocs du joueur (seulement les zones proches sont parcourues). */
+    private static void proches(Minecraft mc, int rayon, java.util.function.IntConsumer action) {
+        int[] l = new int[3];
+        versSchema(mc.player.getBlockX(), mc.player.getBlockY(), mc.player.getBlockZ(), l);
+        index.dansBoite(l[0] - rayon, l[1] - rayon, l[2] - rayon, l[0] + rayon, l[1] + rayon, l[2] + rayon, action);
     }
 
     /** Bloc attendu à l'endroit visé (null si on ne vise aucun fantôme). */
