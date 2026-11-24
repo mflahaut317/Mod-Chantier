@@ -65,7 +65,9 @@ public final class Actions {
                 projet.basculerSelection(joueur.getUUID(), true);
                 joueur.sendSystemMessage(Component.literal(
                         "§eMode sélection : clic droit sur les coffres pour les ajouter ou les retirer. "
-                                + "Rouvre l'écran Chantier et clique sur « Terminer » quand c'est fini."));
+                                + "Accroupi + clic droit sur un autre bloc pour terminer, ou ")
+                        .append(Component.literal("§a§l[Terminer la sélection]").withStyle(s -> s.withClickEvent(
+                                new net.minecraft.network.chat.ClickEvent.RunCommand("/chantier terminer")))));
                 repondre(joueur, "Mode sélection actif.", false);
             }
             case "selection_off" -> {
@@ -167,11 +169,27 @@ public final class Actions {
         if (!(event.getEntity() instanceof ServerPlayer joueur)) return;
         Projet projet = Chantiers.de(joueur.getUUID());
         if (projet == null || !projet.enSelection(joueur.getUUID())) return;
-        if (event.getHand() != InteractionHand.MAIN_HAND) { event.setCanceled(true); return; }
         if (!(joueur.level() instanceof ServerLevel monde)) return;
+        boolean conteneur = monde.getBlockEntity(event.getPos()) instanceof net.minecraft.world.Container;
+        if (!conteneur) {
+            // Portes, leviers… marchent normalement ; accroupi + clic droit termine la sélection
+            if (joueur.isShiftKeyDown() && event.getHand() == InteractionHand.MAIN_HAND) {
+                event.setCanceled(true);
+                terminerSelection(joueur, projet);
+            }
+            return;
+        }
         event.setCanceled(true);
+        if (event.getHand() != InteractionHand.MAIN_HAND) return;
         String message = projet.basculerCoffre(monde, event.getPos(), monde.getServer());
         joueur.sendSystemMessage(Component.literal(message));
+    }
+
+    static void terminerSelection(ServerPlayer joueur, Projet projet) {
+        if (!projet.enSelection(joueur.getUUID())) return;
+        projet.basculerSelection(joueur.getUUID(), false);
+        joueur.sendSystemMessage(Component.literal("§aSélection terminée : " + projet.nombreCoffres() + " emplacements de coffre."));
+        repondre(joueur, null, false);
     }
 
     /** Envoie les réglages à jour (et un message) au joueur, s'il a le mod. */

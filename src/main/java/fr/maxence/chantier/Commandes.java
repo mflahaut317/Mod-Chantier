@@ -10,11 +10,20 @@ public final class Commandes {
     private Commandes() {}
 
     static void enregistrer(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("chantier").executes(ctx -> {
-            ServerPlayer joueur = ctx.getSource().getPlayer();
-            if (joueur == null) return 0;
-            Actions.repondre(joueur, null, true);
-            return 1;
-        }));
+        dispatcher.register(Commands.literal("chantier")
+                .executes(ctx -> {
+                    ServerPlayer joueur = ctx.getSource().getPlayer();
+                    if (joueur == null) return 0;
+                    Actions.repondre(joueur, null, true);
+                    return 1;
+                })
+                // /chantier terminer : sort du mode « choisir les coffres » (lien cliquable dans le chat)
+                .then(Commands.literal("terminer").executes(ctx -> {
+                    ServerPlayer joueur = ctx.getSource().getPlayer();
+                    if (joueur == null) return 0;
+                    Projet projet = Chantiers.de(joueur.getUUID());
+                    if (projet != null) Actions.terminerSelection(joueur, projet);
+                    return 1;
+                })));
     }
 }

@@ -143,6 +143,9 @@ public final class Projet {
      */
     public void montrerCoffres(ServerPlayer joueur) {
         if (!enSelection.contains(joueur.getUUID()) || !(joueur.level() instanceof ServerLevel monde)) return;
+        // Rappel au-dessus de la barre d'objets
+        joueur.sendSystemMessage(Component.literal("§eSélection des coffres (" + nombreCoffres()
+                + ") · accroupi + clic droit pour terminer"), true);
         if (!monde.dimension().identifier().toString().equals(donnees.dimensionCoffres)) return;
         for (int[] c : donnees.coffres) {
             if (joueur.distanceToSqr(c[0] + 0.5, c[1] + 0.5, c[2] + 0.5) > 48 * 48) continue;
