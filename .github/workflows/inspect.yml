@@ -16,10 +16,20 @@ jobs:
           JAR=$(grep -l "net/minecraft/client/Minecraft.class" $(find build ~/.gradle -name '*.jar' 2>/dev/null) 2>/dev/null | head -1)
           echo "JAR=$JAR"
           CP="$JAR:$(find ~/.gradle build -name 'neoforge-*.jar' 2>/dev/null | tr '\n' ':')"
-          echo "=== NativeImage"; javap -cp "$CP" com.mojang.blaze3d.platform.NativeImage > /tmp/ni.txt 2>&1; grep -E 'public com.mojang.blaze3d.platform.NativeImage\(|setPixel|getPixel|static .*read|close' /tmp/ni.txt | head
-          echo "=== DynamicTexture"; javap -cp "$CP" net.minecraft.client.renderer.texture.DynamicTexture 2>&1 | head -15
-          echo "=== TextureManager"; javap -cp "$CP" net.minecraft.client.renderer.texture.TextureManager 2>&1 | grep -E 'register|release' | head
-          echo "=== Resource"; javap -cp "$CP" net.minecraft.server.packs.resources.Resource 2>&1 | grep -E 'open' | head -3
+          echo "=== AEE"; javap -cp "$CP" 'net.neoforged.neoforge.event.entity.player.AdvancementEvent$AdvancementEarnEvent' > /tmp/x.txt 2>&1; head -40 /tmp/x.txt | grep -E "public|class" | head -25
+          echo "=== AE"; javap -cp "$CP" 'net.neoforged.neoforge.event.entity.player.AdvancementEvent' > /tmp/x.txt 2>&1; head -40 /tmp/x.txt | grep -E "public|class" | head -25
+          echo "=== AdvHolder"; javap -cp "$CP" net.minecraft.advancements.AdvancementHolder > /tmp/x.txt 2>&1; head -40 /tmp/x.txt | grep -E "public|class" | head -25
+          echo "=== Advancement"; javap -cp "$CP" net.minecraft.advancements.Advancement > /tmp/x.txt 2>&1; head -40 /tmp/x.txt | grep -E "public|class" | head -25
+          echo "=== DisplayInfo"; javap -cp "$CP" net.minecraft.advancements.DisplayInfo > /tmp/x.txt 2>&1; head -40 /tmp/x.txt | grep -E "public|class" | head -25
+          echo "=== AdvType"; javap -cp "$CP" net.minecraft.advancements.AdvancementType > /tmp/x.txt 2>&1; head -40 /tmp/x.txt | grep -E "public|class" | head -25
+          echo "=== ItemStackTemplate"; javap -cp "$CP" net.minecraft.world.item.ItemStackTemplate > /tmp/x.txt 2>&1; head -40 /tmp/x.txt | grep -E "public|class" | head -25
+          echo "=== LDE"; javap -cp "$CP" net.neoforged.neoforge.event.entity.living.LivingDeathEvent > /tmp/x.txt 2>&1; head -40 /tmp/x.txt | grep -E "public|class" | head -25
+          echo "=== DmgSrc"; javap -cp "$CP" net.minecraft.world.damagesource.DamageSource > /tmp/x.txt 2>&1; head -40 /tmp/x.txt | grep -E "public|class" | head -25
+          echo "=== Combat"; javap -cp "$CP" net.minecraft.world.damagesource.CombatTracker > /tmp/x.txt 2>&1; head -40 /tmp/x.txt | grep -E "public|class" | head -25
+          echo "=== CompSer"; javap -cp "$CP" net.minecraft.network.chat.ComponentSerialization > /tmp/x.txt 2>&1; head -40 /tmp/x.txt | grep -E "public|class" | head -25
+          echo "=== Provider"; javap -cp "$CP" 'net.minecraft.core.HolderLookup$Provider' > /tmp/x.txt 2>&1; head -40 /tmp/x.txt | grep -E "public|class" | head -25
+          echo "=== EntityType"; javap -cp "$CP" net.minecraft.world.entity.EntityType > /tmp/x.txt 2>&1; head -40 /tmp/x.txt | grep -E "public|class" | head -25
+          echo "=== EntityTypes"; javap -cp "$CP" net.minecraft.world.entity.EntityTypes > /tmp/x.txt 2>&1; head -40 /tmp/x.txt | grep -E "public|class" | head -25
           OP=$(find ~/.gradle -name 'open-parties-and-claims*.jar' | grep -v sources | head -1); echo "OP=$OP"
           jar tf "$OP" | grep -E 'api/.*(OpenPACServerAPI|IServerPartyAPI|IPartyMemberAPI|IPartyManagerAPI|PartyManager).*class' | head -20
           for C in xaero.pac.common.server.api.OpenPACServerAPI xaero.pac.common.server.parties.party.api.IServerPartyAPI xaero.pac.common.parties.party.member.api.IPartyMemberAPI xaero.pac.common.server.parties.party.api.IPartyManagerAPI; do echo "== $C"; javap -cp "$OP:$CP" $C 2>&1 | head -40; done
