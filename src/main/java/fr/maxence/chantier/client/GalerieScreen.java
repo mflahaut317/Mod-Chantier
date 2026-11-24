@@ -85,7 +85,7 @@ public class GalerieScreen extends CadreScreen {
     }
 
     private void ouvrir(String id) {
-        if (fr.maxence.chantier.VolumeRecu.get(id) == null) envoyer("galerie_volume", id);
+        if (fr.maxence.chantier.VolumeRecu.get(id) == null && demandes.add(id)) envoyer("galerie_volume", id);
         rotation = 0;
         detailId = id;
         defilementMat = 0;
@@ -158,6 +158,7 @@ public class GalerieScreen extends CadreScreen {
             int premier = defilement * c, fin = Math.min(liste.size(), premier + rangeesVisibles() * c);
             for (int i = premier; i < fin; i++) {
                 String id = liste.get(i).id();
+                if (fr.maxence.chantier.VolumeRecu.get(id) == null && demandes.add(id)) envoyer("galerie_volume", id);
                 int k = i - premier;
                 int x = grilleGauche() + (k % c) * (CARTE_L + ECART);
                 int y = py + 12 + (k / c) * (CARTE_H + ECART);
@@ -268,7 +269,14 @@ public class GalerieScreen extends CadreScreen {
             if (dessus) cadreCouleur(g, x, y, CARTE_L, CARTE_H, 0xFFFFFFFF);
 
             ciel(g, x + 4, y + 4, 72);
-            dessinerImage(g, e, x + 4, y + 4, 72);
+            Scene vignette = scene(e, 0);
+            if (vignette != null) {
+                g.enableScissor(x + 4, y + 4, x + 76, y + 76);
+                vignette.dessinerCentre(g, x + 4, y + 4, 72, 72, 8);
+                g.disableScissor();
+            } else {
+                dessinerImage(g, e, x + 4, y + 4, 72);
+            }
 
             int tx = x + 82, tl = CARTE_L - 86;
             texte(g, font, font.plainSubstrByWidth(e.nom(), tl), tx, y + 6, TEXTE);
@@ -288,14 +296,19 @@ public class GalerieScreen extends CadreScreen {
     }
 
     /** Scène 3D texturée du projet (null tant que ses blocs ne sont pas arrivés, ou s'il n'en a pas). */
-    private Scene scene(GaleriePayload.Entree e) {
+    private Scene scene(GaleriePayload.Entree e) { return scene(e, rotation); }
+
+    private Scene scene(GaleriePayload.Entree e, int rot) {
         byte[] donnees = fr.maxence.chantier.VolumeRecu.get(e.id());
         if (donnees == null || donnees.length == 0) return null;
-        return scenes.computeIfAbsent(e.id() + "#" + rotation, k -> {
+        return scenes.computeIfAbsent(e.id() + "#" + rot, k -> {
             Volume.Grille grille = Volume.decoder(donnees);
-            return grille == null ? null : Scene.depuis(grille, rotation);
+            return grille == null ? null : Scene.depuis(grille, rot);
         });
     }
+
+    /** Ids dont on a déjà demandé les blocs au serveur. */
+    private final java.util.Set<String> demandes = new java.util.HashSet<>();
 
     /** Fond « ciel » derrière les aperçus, comme une petite scène. */
     private static void ciel(GuiGraphicsExtractor g, int x, int y, int cote) {
