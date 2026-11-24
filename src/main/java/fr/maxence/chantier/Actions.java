@@ -131,6 +131,28 @@ public final class Actions {
                 if (projetGalerie == null) { repondre(joueur, "Ce projet n'est plus dans la galerie.", false); return; }
                 appliquerListe(joueur, projet, projetGalerie.getKey(), projetGalerie.getValue());
             }
+            case "lier_party" -> {
+                if (!Parties.present()) { repondre(joueur, "Open Parties and Claims n'est pas installé.", false); return; }
+                java.util.UUID idParty = Parties.idParty(serveur, joueur.getUUID());
+                if (idParty == null) {
+                    repondre(joueur, "Tu n'es dans aucune party : /openpac-parties create pour en créer une.", false);
+                    return;
+                }
+                projet.donnees().party = idParty.toString();
+                java.util.List<String> ajoutes = Parties.synchroniser(projet, serveur);
+                Chantiers.sauver();
+                for (ServerPlayer m : projet.membresEnLigne(serveur)) HoloServeur.envoyerA(m, projet);
+                projet.forcerEnvoi();
+                projet.recompter(serveur);
+                projet.diffuser(serveur);
+                repondre(joueur, ajoutes.isEmpty() ? "Chantier lié à ta party."
+                        : "Chantier lié à ta party : " + String.join(", ", ajoutes) + " ajouté(s).", false);
+            }
+            case "delier_party" -> {
+                projet.donnees().party = null;
+                Chantiers.sauver();
+                repondre(joueur, "Le chantier n'est plus lié à la party (les membres restent).", false);
+            }
             case "holo_position" -> HoloServeur.position(joueur, projet, valeur);
             case "holo_retirer" -> HoloServeur.retirer(projet, serveur);
             case "arreter" -> {
@@ -217,7 +239,7 @@ public final class Actions {
         Projet projet = Chantiers.de(joueur.getUUID());
         ConfigPayload config = projet != null
                 ? projet.config(joueur.getUUID(), message, ouvrir)
-                : new ConfigPayload("", "", 0, 0, false, 0, false, "", false, message == null ? "" : message, ouvrir);
+                : new ConfigPayload("", "", 0, 0, false, 0, false, "", false, message == null ? "" : message, ouvrir, "");
         PacketDistributor.sendToPlayer(joueur, config);
     }
 }

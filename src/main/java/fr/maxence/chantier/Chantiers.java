@@ -58,6 +58,16 @@ public final class Chantiers {
 
     /** Toutes les 5 s : seuls les chantiers dont un membre est connecté sont recomptés (et renvoyés s'ils ont changé). */
     public static void tick(MinecraftServer serveur) {
+        // Party liée : les nouveaux membres de la party rejoignent le chantier
+        for (Projet p : new ArrayList<>(PAR_ID.values())) {
+            for (String nom : Parties.synchroniser(p, serveur)) {
+                for (ServerPlayer m : p.membresEnLigne(serveur)) {
+                    m.sendSystemMessage(net.minecraft.network.chat.Component.literal("§e" + nom + " rejoint le chantier (party)."));
+                    if (m.getGameProfile().name().equals(nom)) HoloServeur.envoyerA(m, p);
+                }
+                p.forcerEnvoi();
+            }
+        }
         for (Projet p : new ArrayList<>(PAR_ID.values())) {
             if (!p.estActif() || p.membresEnLigne(serveur).isEmpty()) continue;
             p.recompter(serveur);

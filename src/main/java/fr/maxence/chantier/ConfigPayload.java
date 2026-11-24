@@ -14,7 +14,7 @@ public record ConfigPayload(String titre, String lien,
                             int materiaux, int pourcent, boolean masque,
                             int coffres, boolean selection,
                             String membres, boolean dansChantier,
-                            String message, boolean ouvrir) implements CustomPacketPayload {
+                            String message, boolean ouvrir, String party) implements CustomPacketPayload {
 
     public static final Type<ConfigPayload> TYPE =
             new Type<>(Identifier.fromNamespaceAndPath(Chantier.MODID, "config"));
@@ -32,6 +32,7 @@ public record ConfigPayload(String titre, String lien,
                 ByteBufCodecs.BOOL.encode(buf, p.dansChantier());
                 ByteBufCodecs.STRING_UTF8.encode(buf, p.message());
                 ByteBufCodecs.BOOL.encode(buf, p.ouvrir());
+                ByteBufCodecs.STRING_UTF8.encode(buf, p.party());
             },
             buf -> new ConfigPayload(
                     ByteBufCodecs.STRING_UTF8.decode(buf),
@@ -44,7 +45,8 @@ public record ConfigPayload(String titre, String lien,
                     ByteBufCodecs.STRING_UTF8.decode(buf),
                     ByteBufCodecs.BOOL.decode(buf),
                     ByteBufCodecs.STRING_UTF8.decode(buf),
-                    ByteBufCodecs.BOOL.decode(buf)));
+                    ByteBufCodecs.BOOL.decode(buf),
+                    ByteBufCodecs.STRING_UTF8.decode(buf)));
 
     @Override
     public Type<? extends CustomPacketPayload> type() {

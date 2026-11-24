@@ -69,6 +69,8 @@ public final class Projet {
         int holoVersion = 0;
         int holoX, holoY, holoZ, holoRotation;
         String holoDimension = null;
+        /** Party Open Parties and Claims liée (id), ses membres rejoignent le chantier automatiquement. */
+        String party = null;
     }
 
     /** Joueurs en mode « choisir les coffres » (non sauvegardé). */
@@ -101,6 +103,12 @@ public final class Projet {
 
     public void ajouterMembre(ServerPlayer joueur) {
         donnees.membres.put(joueur.getUUID().toString(), joueur.getGameProfile().name());
+        sauver();
+    }
+
+    /** Ajoute un membre même s'il n'est pas connecté (party Open Parties). */
+    public void ajouterMembre(UUID joueur, String pseudo) {
+        donnees.membres.put(joueur.toString(), pseudo);
         sauver();
     }
 
@@ -260,9 +268,19 @@ public final class Projet {
                 nomsMembres(), true,
                 message != null ? message
                         : donnees.termine ? "Chantier terminé ✔ — charge une nouvelle liste pour recommencer." : "",
-                ouvrir);
+                ouvrir, etatParty());
     }
 
+
+    /** "" : Open Parties absent ; "-" : pas de party liée ; sinon le nom de la party liée. */
+    private String etatParty() {
+        if (!Parties.present()) return "";
+        if (donnees.party == null) return "-";
+        net.minecraft.server.MinecraftServer serveur = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        String nom = "";
+        try { nom = Parties.nomParty(serveur, UUID.fromString(donnees.party)); } catch (IllegalArgumentException ignored) { }
+        return nom.isEmpty() ? "party liée" : nom;
+    }
 
     public void masquer(UUID joueur, boolean masque) {
         if (masque) masques.add(joueur); else masques.remove(joueur);

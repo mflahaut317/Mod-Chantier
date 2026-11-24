@@ -24,6 +24,7 @@ public class ChantierScreen extends CadreScreen {
     private EditBox champPseudo;
     private Button boutonMasquer;
     private Button boutonSelection;
+    private Button boutonParty;
     private boolean confirmerArret = false;
     private ConfigPayload dernierAffiche = null;
     /** Mode affiché : null = pas encore de réponse du serveur. */
@@ -50,7 +51,7 @@ public class ChantierScreen extends CadreScreen {
     @Override
     protected void init() {
         modeChantier = dansChantier();
-        cadre(LARGEUR + 24, modeChantier ? 210 : 128);
+        cadre(LARGEUR + 24, modeChantier ? 222 : 128);
         gauche = px + 12;
         haut = py + 12;
         ConfigPayload c = ConfigRecue.get();
@@ -116,7 +117,13 @@ public class ChantierScreen extends CadreScreen {
             champPseudo.setValue("");
         }).bounds(x + 159, haut + 63, 65, 20).build());
 
-        int ya = haut + 102;
+        boutonParty = addRenderableWidget(Button.builder(Component.literal("Lier ma party"), b -> {
+            ConfigPayload c = ConfigRecue.get();
+            envoyer(c != null && !"-".equals(c.party()) ? "delier_party" : "lier_party", "");
+        }).bounds(gauche + LARGEUR - 90, haut + 84, 90, 20).build());
+        boutonParty.visible = false;
+
+        int ya = haut + 114;
         addRenderableWidget(Button.builder(Component.literal("Relire"),
                 b -> envoyer("actualiser", "")).bounds(gauche, ya, 70, 20).build());
         boutonMasquer = addRenderableWidget(Button.builder(Component.literal("Masquer"),
@@ -166,6 +173,10 @@ public class ChantierScreen extends CadreScreen {
         if (!champTitre.isFocused()) champTitre.setValue(c.titre());
         if (champLien != null && !champLien.isFocused()) champLien.setValue(c.lien());
         if (boutonMasquer != null) boutonMasquer.setMessage(Component.literal(c.masque() ? "Afficher" : "Masquer"));
+        if (boutonParty != null) {
+            boutonParty.visible = !c.party().isEmpty();
+            boutonParty.setMessage(Component.literal("-".equals(c.party()) ? "Lier ma party" : "Délier la party"));
+        }
         if (boutonSelection != null) {
             boutonSelection.setMessage(Component.literal(c.selection() ? "Terminer la sélection" : "Choisir les coffres"));
         }
@@ -209,19 +220,22 @@ public class ChantierScreen extends CadreScreen {
         etiquette(g, new ItemStack(Items.NAME_TAG), "Titre", haut);
         etiquette(g, new ItemStack(Items.CHEST), "Coffres", haut + 26);
         etiquette(g, new ItemStack(Items.PLAYER_HEAD), "Membres", haut + 64);
-        g.fill(gauche, haut + 96, gauche + LARGEUR, haut + 97, CREUX);
+        g.fill(gauche, haut + 108, gauche + LARGEUR, haut + 109, CREUX);
         if (c == null) {
-            texte(g, font, "En attente du serveur…", gauche, haut + 132, DOUX);
+            texte(g, font, "En attente du serveur…", gauche, haut + 144, DOUX);
             return;
         }
         String infoCoffres = c.coffres() == 0
                 ? "Aucun coffre : seuls les inventaires comptent."
                 : c.coffres() + " coffres choisis (+ inventaires des membres).";
         texte(g, font, font.plainSubstrByWidth(infoCoffres, LARGEUR - CHAMP), gauche + CHAMP, haut + 49, DOUX);
-        texte(g, font, font.plainSubstrByWidth(c.membres(), LARGEUR - CHAMP), gauche + CHAMP, haut + 86, DOUX);
+        boolean lie = !c.party().isEmpty() && !"-".equals(c.party());
+        int placeMembres = LARGEUR - CHAMP - (c.party().isEmpty() ? 0 : 94);
+        texte(g, font, font.plainSubstrByWidth(c.membres(), placeMembres), gauche + CHAMP, haut + 86, DOUX);
+        if (lie) texte(g, font, font.plainSubstrByWidth("Lié : " + c.party(), placeMembres), gauche + CHAMP, haut + 97, VERT);
 
         // Avancement : texte + barre
-        int y = haut + 130;
+        int y = haut + 142;
         String etat = c.materiaux() + " matériaux · " + c.pourcent() + " %";
         texte(g, font, etat, gauche, y, c.pourcent() >= 100 ? VERT : TEXTE);
         creux(g, gauche, y + 11, LARGEUR, 8, 0xFF5A5A5A);
