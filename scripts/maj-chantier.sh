@@ -1,5 +1,5 @@
 #!/bin/bash
-# Met à jour les mods Chantier, Souvenirs et Tableau sur le serveur et dans le pack des joueurs, en une commande :
+# Met à jour les mods Chantier, Souvenirs, Tableau et Durabilité sur le serveur et dans le pack des joueurs, en une commande :
 #
 #   ~/maj-chantier.sh
 #
@@ -47,6 +47,16 @@ else
     git push
 fi
 
+# 2b. Attendre que GitHub serve le nouveau pack (la copie « raw » peut garder l'ancienne version jusqu'à 5 min)
+LOCAL=$(sha256sum "$PACK/pack.toml" | cut -d' ' -f1)
+echo "Attente de la publication du pack sur GitHub…"
+for i in $(seq 1 40); do
+    DISTANT=$(curl -fsSL "https://raw.githubusercontent.com/mflahaut317/survie-pack/main/pack.toml" | sha256sum | cut -d' ' -f1)
+    [ "$DISTANT" = "$LOCAL" ] && break
+    sleep 10
+done
+[ "$DISTANT" = "$LOCAL" ] || echo "Attention : GitHub sert peut-être encore l'ancien pack. Si un mod manque, relance ce script dans 5 minutes."
+
 # 3. Arrêt propre du serveur (sauvegarde du monde)
 if screen -list | grep -q '\.mc\b'; then
     echo "Arrêt du serveur (sauvegarde du monde)…"
@@ -63,6 +73,8 @@ fi
 
 # 4. Nettoyage : le serveur retéléchargera les bonnes versions via packwiz au démarrage
 for MOD in "${MODS[@]}"; do rm -f "$SERVEUR"/mods/"${MOD%%:*}"-*.jar; done
+# packwiz.json = mémoire de l'installateur. Sans elle, il revérifie tous les fichiers et remet ceux qui manquent.
+rm -f "$SERVEUR/packwiz.json"
 
 # 5. Redémarrage
 sudo systemctl daemon-reload
