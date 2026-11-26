@@ -22,8 +22,8 @@ public class Visage {
     public static final String MODID = "visage";
     /** Taille maximale d'une image (octets). */
     public static final int TAILLE_MAX = 24_000;
-    /** Au plus une image toutes les 60 ms par joueur (~15 images/s). */
-    private static final long INTERVALLE_MIN = 60;
+    /** Au plus une image toutes les 35 ms par joueur (25 images/s avec une marge). */
+    private static final long INTERVALLE_MIN = 35;
 
     private static final Map<UUID, Long> DERNIER_ENVOI = new ConcurrentHashMap<>();
 

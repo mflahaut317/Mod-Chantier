@@ -15,14 +15,14 @@ import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
 
 /**
- * Lit la webcam dans un fil à part : ~10 images/s, recadrées en carré et réduites à 96×96.
+ * Lit la webcam dans un fil à part : 25 images/s, recadrées en carré et réduites à 96×96.
  * Chaque image est gardée en pixels (pour notre propre tête) et en JPEG (pour l'envoi).
  */
 final class Camera {
     private Camera() {}
 
     static final int TAILLE = 96;
-    private static final long INTERVALLE = 100; // ms
+    private static final long INTERVALLE = 40; // ms (25 images/s)
 
     /** Une image prête : pixels ARGB (TAILLE×TAILLE) et JPEG. */
     record Image(int[] pixels, byte[] jpeg, long numero) { }
@@ -79,7 +79,9 @@ final class Camera {
                     int[] pixels = new int[TAILLE * TAILLE];
                     carre.getRGB(0, 0, TAILLE, TAILLE, pixels, 0, TAILLE);
                     for (int i = 0; i < pixels.length; i++) pixels[i] |= 0xFF000000;
-                    derniere = new Image(pixels, encoder(jpeg, carre), ++compteur);
+                    byte[] donnees = encoder(jpeg, carre);
+                    derniere = new Image(pixels, donnees, ++compteur);
+                    envoyer(donnees);
                 }
                 long reste = INTERVALLE - (System.currentTimeMillis() - debut);
                 if (reste > 0) Thread.sleep(reste);
@@ -97,6 +99,14 @@ final class Camera {
             }
             derniere = null;
         }
+    }
+
+    /** Envoi direct depuis ce fil (la connexion du jeu accepte les envois depuis n'importe quel fil). */
+    private static void envoyer(byte[] donnees) {
+        if (donnees.length == 0 || donnees.length > fr.maxence.visage.Visage.TAILLE_MAX || !voulue) return;
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc.getConnection() == null || mc.player == null) return;
+        net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new fr.maxence.visage.ImageEnvoi(donnees));
     }
 
     /** Garde le carré central de l'image, réduit à TAILLE×TAILLE. */

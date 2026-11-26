@@ -23,6 +23,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,8 +38,7 @@ public class VisageClient {
             new KeyMapping.Category(Identifier.fromNamespaceAndPath(Visage.MODID, "visage"));
     private static final KeyMapping CAMERA = new KeyMapping("key.visage.camera", InputConstants.KEY_N, CATEGORIE);
 
-    private static long derniereEnvoyee = -1;
-    private static long dernierEnvoi = 0;
+    private static long derniereAffichee = -1;
     private static String message = "";
     private static long messageJusqua = 0;
 
@@ -78,22 +78,24 @@ public class VisageClient {
             }
         }
 
-        // Notre caméra : sur notre tête (vue F5) et envoi au serveur, ~10 images/s
-        Camera.Image image = Camera.derniere();
-        if (image != null && image.numero() != derniereEnvoyee) {
-            derniereEnvoyee = image.numero();
-            Textures.mettreAJour(mc.player.getId(), image.pixels());
-            long maintenant = System.currentTimeMillis();
-            if (image.jpeg().length > 0 && image.jpeg().length <= Visage.TAILLE_MAX && maintenant - dernierEnvoi >= 90) {
-                dernierEnvoi = maintenant;
-                ClientPacketDistributor.sendToServer(new ImageEnvoi(image.jpeg()));
-            }
-        }
         if (!Camera.allumee() && !Camera.etat().isEmpty()) {
             afficher(Camera.etat());
             Camera.effacerEtat();
         }
+        if (mc.player.tickCount % 200 == 0) Textures.nettoyer();
+    }
 
+    /** À chaque image affichée (et pas seulement 20 fois/s) : textures à jour, pour suivre les 25 images/s des caméras. */
+    @SubscribeEvent
+    static void onImage(RenderFrameEvent.Pre event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        // Notre caméra, sur notre tête (vue F5). L'envoi au serveur se fait dans le fil de la caméra.
+        Camera.Image image = Camera.derniere();
+        if (image != null && image.numero() != derniereAffichee) {
+            derniereAffichee = image.numero();
+            Textures.mettreAJour(mc.player.getId(), image.pixels());
+        }
         // Caméras des autres joueurs
         for (Map.Entry<Integer, byte[]> e : Recu.IMAGES.entrySet()) {
             Recu.IMAGES.remove(e.getKey(), e.getValue());
@@ -104,7 +106,6 @@ public class VisageClient {
                 if (pixels != null) Textures.mettreAJour(e.getKey(), pixels);
             }
         }
-        if (mc.player.tickCount % 200 == 0) Textures.nettoyer();
     }
 
     @SubscribeEvent
