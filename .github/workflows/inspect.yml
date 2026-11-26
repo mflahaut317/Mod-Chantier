@@ -17,18 +17,8 @@ jobs:
           JAR=$(grep -l "net/minecraft/client/Minecraft.class" $(find build ~/.gradle -name '*.jar' 2>/dev/null) 2>/dev/null | head -1)
           echo "JAR=$JAR"
           CP="$JAR:$(find ~/.gradle build -name 'neoforge-*.jar' 2>/dev/null | tr '\n' ':')"
-          jar tf "$JAR" | grep -E 'Avatar|RenderTypes|SubmitNodeCollector|layers/RenderLayer|model/player/PlayerModel|HumanoidModel.class|renderer/RenderType.class|CustomGeometry' | head -40
-          javap -cp "$CP" 'net.neoforged.neoforge.client.event.EntityRenderersEvent$AddLayers'
-          javap -cp "$CP" net.minecraft.client.renderer.entity.layers.RenderLayer
-          javap -cp "$CP" net.minecraft.client.renderer.entity.player.AvatarRenderer
-          javap -cp "$CP" net.minecraft.client.renderer.entity.state.AvatarRenderState
-          javap -cp "$CP" net.minecraft.client.renderer.entity.state.EntityRenderState
-          javap -cp "$CP" net.minecraft.client.renderer.SubmitNodeCollector
-          javap -cp "$CP" net.minecraft.client.renderer.OrderedSubmitNodeCollector
-          javap -cp "$CP" net.minecraft.client.renderer.rendertype.RenderTypes
-          javap -cp "$CP" net.minecraft.client.model.HumanoidModel
-          javap -cp "$CP" net.minecraft.client.model.geom.ModelPart
-          javap -cp "$CP" com.mojang.blaze3d.vertex.VertexConsumer
-          javap -cp "$CP" net.minecraft.client.renderer.texture.DynamicTexture
-          javap -cp "$CP" net.neoforged.neoforge.network.PacketDistributor
-          javap -cp "$CP" net.minecraft.client.renderer.texture.OverlayTexture
+          javap -cp "$CP" net.minecraft.client.renderer.GameRenderer | grep -iE 'camera'
+          javap -cp "$CP" net.minecraft.client.Minecraft | grep -iE 'camera'
+          javap -cp "$CP" net.minecraft.client.Camera | grep -iE 'rotation|orientation|public'
+          javap -cp "$CP" net.minecraft.client.renderer.state.level.CameraRenderState
+          javap -cp "$CP" net.minecraft.client.renderer.entity.EntityRenderDispatcher | grep -iE 'camera'
