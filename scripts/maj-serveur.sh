@@ -1,7 +1,7 @@
 #!/bin/bash
-# Met à jour les mods Chantier, Souvenirs, Tableau et Durabilité sur le serveur et dans le pack des joueurs, en une commande :
+# Met à jour les mods (Chantier, Souvenirs, Tableau, Durabilité, Visage) sur le serveur et dans le pack des joueurs, en une commande :
 #
-#   ~/maj-chantier.sh
+#   ~/maj-serveur.sh
 #
 # Étapes : pack packwiz (git push) -> arrêt propre du serveur -> nettoyage -> redémarrage.
 set -euo pipefail

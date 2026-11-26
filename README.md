@@ -31,6 +31,6 @@ Suivi des matériaux d'un gros build entre potes : la liste vient d'une feuille 
 
 ## Installation et mises à jour
 
-Le mod doit être sur le serveur **et** chez les joueurs (via packwiz). Sur le serveur : `~/maj-chantier.sh` (voir `scripts/maj-chantier.sh`).
+Le mod doit être sur le serveur **et** chez les joueurs (via packwiz). Sur le serveur : `~/maj-serveur.sh` (voir `scripts/maj-serveur.sh`).
 
 Compiler à la main : `./gradlew build` (Java 25) → `build/libs/`.
