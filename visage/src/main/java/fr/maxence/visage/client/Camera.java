@@ -53,51 +53,89 @@ final class Camera {
         }
     }
 
+    /** Noms des caméras trouvées (rempli en arrière-plan à l'ouverture des réglages). */
+    private static volatile java.util.List<String> noms = java.util.List.of();
+    private static volatile boolean redemarrer = false;
+
+    static java.util.List<String> noms() { return noms; }
+
+    /** Cherche les caméras branchées, sans bloquer le jeu. */
+    static void lister() {
+        Thread t = new Thread(() -> {
+            try {
+                java.util.List<String> liste = new java.util.ArrayList<>();
+                for (Webcam w : Webcam.getWebcams(4000)) liste.add(w.getName());
+                noms = liste;
+            } catch (Throwable e) {
+                VisageClient.LOGGER.warn("[Visage] Liste des caméras impossible", e);
+            }
+        }, "Visage liste");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /** Nouvelle caméra choisie : on la rouvre si la caméra est allumée. */
+    static void changerDeCamera() {
+        redemarrer = true;
+    }
+
+    private static Webcam choisir() throws Exception {
+        String voulu = Reglages.camera;
+        if (!voulu.isEmpty()) {
+            for (Webcam w : Webcam.getWebcams(4000)) if (w.getName().equals(voulu)) return w;
+        }
+        return Webcam.getDefault(4000);
+    }
+
     private static void boucle() {
-        Webcam webcam = null;
-        try {
-            webcam = Webcam.getDefault(4000);
-            if (webcam == null) {
-                etat = "Aucune caméra trouvée";
-                voulue = false;
-                return;
-            }
-            Dimension meilleure = null;
-            for (Dimension d : webcam.getViewSizes()) {
-                // la plus petite taille d'au moins 240 px de haut, pour aller vite
-                if (d.height >= 240 && (meilleure == null || d.height < meilleure.height)) meilleure = d;
-            }
-            if (meilleure != null) webcam.setViewSize(meilleure);
-            webcam.open();
-            etat = "";
-            ImageWriter jpeg = ecrivainJpeg();
-            while (voulue) {
-                long debut = System.currentTimeMillis();
-                BufferedImage brute = webcam.getImage();
-                if (brute != null) {
-                    BufferedImage carre = recadrer(brute);
-                    int[] pixels = new int[TAILLE * TAILLE];
-                    carre.getRGB(0, 0, TAILLE, TAILLE, pixels, 0, TAILLE);
-                    for (int i = 0; i < pixels.length; i++) pixels[i] |= 0xFF000000;
-                    byte[] donnees = encoder(jpeg, carre);
-                    derniere = new Image(pixels, donnees, ++compteur);
-                    envoyer(donnees);
+        while (voulue) {
+            redemarrer = false;
+            Webcam webcam = null;
+            try {
+                webcam = choisir();
+                if (webcam == null) {
+                    etat = "Aucune caméra trouvée";
+                    voulue = false;
+                    return;
                 }
-                long reste = INTERVALLE - (System.currentTimeMillis() - debut);
-                if (reste > 0) Thread.sleep(reste);
+                Dimension meilleure = null;
+                for (Dimension d : webcam.getViewSizes()) {
+                    // la plus petite taille d'au moins 240 px de haut, pour aller vite
+                    if (d.height >= 240 && (meilleure == null || d.height < meilleure.height)) meilleure = d;
+                }
+                if (meilleure != null) webcam.setViewSize(meilleure);
+                webcam.open();
+                etat = "";
+                ImageWriter jpeg = ecrivainJpeg();
+                while (voulue && !redemarrer) {
+                    long debut = System.currentTimeMillis();
+                    BufferedImage brute = webcam.getImage();
+                    if (brute != null) {
+                        BufferedImage carre = recadrer(brute);
+                        int[] pixels = new int[TAILLE * TAILLE];
+                        carre.getRGB(0, 0, TAILLE, TAILLE, pixels, 0, TAILLE);
+                        for (int i = 0; i < pixels.length; i++) pixels[i] |= 0xFF000000;
+                        byte[] donnees = encoder(jpeg, carre);
+                        derniere = new Image(pixels, donnees, ++compteur);
+                        envoyer(donnees);
+                    }
+                    long reste = INTERVALLE - (System.currentTimeMillis() - debut);
+                    if (reste > 0) Thread.sleep(reste);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            } catch (Throwable e) {
+                // Pilote absent, caméra occupée par une autre appli, bibliothèque native refusée…
+                etat = "Caméra indisponible : " + e.getClass().getSimpleName();
+                voulue = false;
+                VisageClient.LOGGER.error("[Visage] Erreur caméra", e);
+            } finally {
+                if (webcam != null) {
+                    try { webcam.close(); } catch (Throwable ignored) { }
+                }
+                if (!voulue) derniere = null;
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } catch (Throwable e) {
-            // Pilote absent, caméra occupée par une autre appli, bibliothèque native refusée…
-            etat = "Caméra indisponible : " + e.getClass().getSimpleName();
-            voulue = false;
-            fr.maxence.visage.client.VisageClient.LOGGER.error("[Visage] Erreur caméra", e);
-        } finally {
-            if (webcam != null) {
-                try { webcam.close(); } catch (Throwable ignored) { }
-            }
-            derniere = null;
         }
     }
 
@@ -109,13 +147,19 @@ final class Camera {
         net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new fr.maxence.visage.ImageEnvoi(donnees));
     }
 
-    /** Garde le carré central de l'image, réduit à TAILLE×TAILLE. */
+    /** Garde le carré central (plus ou moins rapproché), réduit à TAILLE×TAILLE, puis tourné et retourné selon les réglages. */
     private static BufferedImage recadrer(BufferedImage source) {
-        int cote = Math.min(source.getWidth(), source.getHeight());
+        int cote = Math.round(Math.min(source.getWidth(), source.getHeight()) / Math.max(1f, Reglages.zoom));
         int x = (source.getWidth() - cote) / 2, y = (source.getHeight() - cote) / 2;
         BufferedImage sortie = new BufferedImage(TAILLE, TAILLE, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = sortie.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        java.awt.geom.AffineTransform t = new java.awt.geom.AffineTransform();
+        t.translate(TAILLE / 2.0, TAILLE / 2.0);
+        t.quadrantRotate(Reglages.rotation);
+        if (Reglages.miroir) t.scale(-1, 1);
+        t.translate(-TAILLE / 2.0, -TAILLE / 2.0);
+        g.setTransform(t);
         g.drawImage(source, 0, 0, TAILLE, TAILLE, x, y, x + cote, y + cote, null);
         g.dispose();
         return sortie;

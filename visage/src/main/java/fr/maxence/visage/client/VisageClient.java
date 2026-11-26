@@ -37,6 +37,11 @@ public class VisageClient {
     private static final KeyMapping.Category CATEGORIE =
             new KeyMapping.Category(Identifier.fromNamespaceAndPath(Visage.MODID, "visage"));
     private static final KeyMapping CAMERA = new KeyMapping("key.visage.camera", InputConstants.KEY_N, CATEGORIE);
+    private static final KeyMapping REGLAGES = new KeyMapping("key.visage.reglages", InputConstants.KEY_B, CATEGORIE);
+
+    public VisageClient() {
+        Reglages.charger();
+    }
 
     private static long derniereAffichee = -1;
     private static String message = "";
@@ -46,6 +51,7 @@ public class VisageClient {
     static void onTouches(RegisterKeyMappingsEvent event) {
         event.registerCategory(CATEGORIE);
         event.register(CAMERA);
+        event.register(REGLAGES);
     }
 
     @SubscribeEvent
@@ -70,12 +76,14 @@ public class VisageClient {
             boolean avant = Camera.allumee();
             Camera.basculer();
             if (avant) {
-                ClientPacketDistributor.sendToServer(new ImageEnvoi(new byte[0]));
-                Textures.eteindre(mc.player.getId());
+                eteindre();
                 afficher("Caméra éteinte");
             } else {
-                afficher("Caméra allumée : tes potes proches te voient");
+                afficher("Caméra allumée : tes potes proches te voient (B : réglages)");
             }
+        }
+        while (REGLAGES.consumeClick()) {
+            mc.gui.setScreen(new ReglagesScreen());
         }
 
         if (!Camera.allumee() && !Camera.etat().isEmpty()) {
@@ -113,6 +121,13 @@ public class VisageClient {
         if (Camera.allumee()) Camera.basculer();
         Recu.IMAGES.clear();
         Textures.toutLiberer();
+    }
+
+    /** Caméra coupée : on prévient les autres et on retire l'image de notre tête. */
+    static void eteindre() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.getConnection() != null) ClientPacketDistributor.sendToServer(new ImageEnvoi(new byte[0]));
+        if (mc.player != null) Textures.eteindre(mc.player.getId());
     }
 
     private static void afficher(String texte) {
