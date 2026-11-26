@@ -10,7 +10,7 @@ PACK=~/survie-pack
 SERVEUR=~/survie
 DEPOT=mflahaut317/Mod-Chantier
 BASE="https://github.com/$DEPOT/releases/download/dernier"
-MODS=("chantier:Chantier" "souvenirs:Souvenirs" "tableau:Tableau" "durabilite:Durabilite")
+MODS=("chantier:Chantier" "souvenirs:Souvenirs" "tableau:Tableau" "durabilite:Durabilite" "visage:Visage")
 
 # 0. Mot de passe sudo demandé tout de suite (sinon le serveur pourrait rester arrêté si sudo expire)
 sudo -v || { echo "Mot de passe sudo refusé : rien n'a été fait."; exit 1; }
