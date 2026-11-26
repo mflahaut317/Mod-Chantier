@@ -28,7 +28,7 @@ import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Côté joueur : touche N pour la caméra, envoi des images, affichage sur les têtes. */
+/** Côté joueur : touche N pour le menu de la caméra, envoi des images, affichage sur les têtes. */
 @Mod(value = Visage.MODID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid = Visage.MODID, value = Dist.CLIENT)
 public class VisageClient {
@@ -37,7 +37,6 @@ public class VisageClient {
     private static final KeyMapping.Category CATEGORIE =
             new KeyMapping.Category(Identifier.fromNamespaceAndPath(Visage.MODID, "visage"));
     private static final KeyMapping CAMERA = new KeyMapping("key.visage.camera", InputConstants.KEY_N, CATEGORIE);
-    private static final KeyMapping REGLAGES = new KeyMapping("key.visage.reglages", InputConstants.KEY_B, CATEGORIE);
 
     public VisageClient() {
         Reglages.charger();
@@ -51,7 +50,6 @@ public class VisageClient {
     static void onTouches(RegisterKeyMappingsEvent event) {
         event.registerCategory(CATEGORIE);
         event.register(CAMERA);
-        event.register(REGLAGES);
     }
 
     @SubscribeEvent
@@ -72,17 +70,8 @@ public class VisageClient {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
 
+        // N : ouvre le menu de la caméra (allumer, choisir, tourner…)
         while (CAMERA.consumeClick()) {
-            boolean avant = Camera.allumee();
-            Camera.basculer();
-            if (avant) {
-                eteindre();
-                afficher("Caméra éteinte");
-            } else {
-                afficher("Caméra allumée : tes potes proches te voient (B : réglages)");
-            }
-        }
-        while (REGLAGES.consumeClick()) {
             mc.gui.setScreen(new ReglagesScreen());
         }
 

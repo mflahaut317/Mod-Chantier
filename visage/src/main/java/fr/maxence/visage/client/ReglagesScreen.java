@@ -8,7 +8,7 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
-/** Réglages de la caméra (touche B) : choix de la caméra, rotation, miroir, zoom, avec aperçu en direct. */
+/** Réglages de la caméra (touche N) : choix de la caméra, rotation, miroir, zoom, avec aperçu en direct. */
 final class ReglagesScreen extends net.minecraft.client.gui.screens.Screen {
     private static final int APERCU = 96;
     private static final float[] ZOOMS = { 1f, 1.5f, 2f };
