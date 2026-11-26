@@ -13,7 +13,7 @@ final class ReglagesScreen extends net.minecraft.client.gui.screens.Screen {
     private static final int APERCU = 96;
     private static final float[] ZOOMS = { 1f, 1.5f, 2f };
 
-    private Button allumer, camera, rotation, miroir, zoom;
+    private Button allumer, camera, rotation, miroir, zoom, affichage;
     private int px, py;
 
     ReglagesScreen() {
@@ -26,7 +26,7 @@ final class ReglagesScreen extends net.minecraft.client.gui.screens.Screen {
         int largeurBouton = 170;
         int total = APERCU + 12 + largeurBouton;
         px = width / 2 - total / 2;
-        py = height / 2 - 70;
+        py = height / 2 - 85;
         int bx = px + APERCU + 12, by = py;
 
         allumer = addRenderableWidget(Button.builder(Component.empty(), b -> {
@@ -58,8 +58,12 @@ final class ReglagesScreen extends net.minecraft.client.gui.screens.Screen {
             Reglages.zoom = ZOOMS[(i + 1) % ZOOMS.length];
             majTextes();
         }).bounds(bx, by + 96, largeurBouton, 20).build());
+        affichage = addRenderableWidget(Button.builder(Component.empty(), b -> {
+            Reglages.auDessus = !Reglages.auDessus;
+            majTextes();
+        }).bounds(bx, by + 128, largeurBouton, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Terminé"), b -> onClose())
-                .bounds(width / 2 - 60, by + 128, 120, 20).build());
+                .bounds(width / 2 - 60, by + 160, 120, 20).build());
         majTextes();
     }
 
@@ -70,6 +74,7 @@ final class ReglagesScreen extends net.minecraft.client.gui.screens.Screen {
         camera.setMessage(Component.literal("Caméra : " + nom));
         rotation.setMessage(Component.literal("Rotation : " + Reglages.rotation * 90 + "°"));
         miroir.setMessage(Component.literal("Miroir : " + (Reglages.miroir ? "oui" : "non")));
+        affichage.setMessage(Component.literal("Caméras des autres : " + (Reglages.auDessus ? "au-dessus" : "sur la tête")));
         zoom.setMessage(Component.literal("Zoom : ×" + (Reglages.zoom == 1.5f ? "1,5" : Integer.toString(Math.round(Reglages.zoom)))));
     }
 

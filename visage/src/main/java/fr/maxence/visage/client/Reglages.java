@@ -19,6 +19,8 @@ final class Reglages {
     static volatile boolean miroir = false;
     /** 1 = image entière, 1,5 ou 2 = rapproché sur le centre. */
     static volatile float zoom = 1f;
+    /** Comment JE vois les caméras des autres : sur la tête (false) ou dans un rond au-dessus (true). */
+    static volatile boolean auDessus = false;
 
     private static Path fichier() {
         return FMLPaths.CONFIGDIR.get().resolve("visage.properties");
@@ -34,6 +36,7 @@ final class Reglages {
         camera = p.getProperty("camera", "");
         try { rotation = Math.floorMod(Integer.parseInt(p.getProperty("rotation", "0")), 4); } catch (NumberFormatException ignored) { }
         miroir = Boolean.parseBoolean(p.getProperty("miroir", "false"));
+        auDessus = Boolean.parseBoolean(p.getProperty("au_dessus", "false"));
         try { zoom = Math.max(1f, Math.min(3f, Float.parseFloat(p.getProperty("zoom", "1")))); } catch (NumberFormatException ignored) { }
     }
 
@@ -43,6 +46,7 @@ final class Reglages {
         p.setProperty("rotation", Integer.toString(rotation));
         p.setProperty("miroir", Boolean.toString(miroir));
         p.setProperty("zoom", Float.toString(zoom));
+        p.setProperty("au_dessus", Boolean.toString(auDessus));
         try (Writer w = Files.newBufferedWriter(fichier(), StandardCharsets.UTF_8)) {
             p.store(w, "Visage : réglages de la caméra");
         } catch (Exception ignored) { }
