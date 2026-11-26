@@ -55,7 +55,7 @@ final class CoucheVisage extends RenderLayer<AvatarRenderState, PlayerModel> {
     private static void auDessus(PoseStack pile, SubmitNodeCollector collecteur, Identifier texture) {
         org.joml.Vector3f centre = pile.last().pose().transformPosition(0f, HAUTEUR_MODELE, 0f, new org.joml.Vector3f());
         org.joml.Quaternionf orientation = new org.joml.Quaternionf(
-                net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera().rotation());
+                net.minecraft.client.Minecraft.getInstance().gameRenderer.mainCamera().rotation());
         pile.pushPose();
         pile.last().pose().identity().translate(centre).rotate(orientation);
         pile.last().normal().identity().rotate(orientation);
