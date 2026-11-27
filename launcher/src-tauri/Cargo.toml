@@ -1,0 +1,21 @@
+[package]
+name = "pixel-potes"
+version = "1.0.0"
+description = "Launcher Pixel Potes (survie entre potes)"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq = "2"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+sysinfo = { version = "0.33", default-features = false, features = ["system"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
