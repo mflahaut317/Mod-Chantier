@@ -22,8 +22,19 @@ public final class Icone {
 
     /** À appeler sur le fil de rendu (celui qui possède la fenêtre). Depuis la 26.3, la fenêtre est gérée par SDL3. */
     public static void appliquer() {
-        long fenetre = SDLVideo.SDL_GL_GetCurrentWindow();
-        if (fenetre == 0L) return;
+        List<Long> fenetres = new ArrayList<>();
+        long courante = SDLVideo.SDL_GL_GetCurrentWindow();
+        if (courante != 0L) {
+            fenetres.add(courante);
+        } else {
+            // contexte pas encore actif (tout début du chargement) : toutes les fenêtres SDL du jeu
+            org.lwjgl.PointerBuffer liste = SDLVideo.SDL_GetWindows();
+            if (liste != null) {
+                for (int i = 0; i < liste.remaining(); i++) fenetres.add(liste.get(liste.position() + i));
+                org.lwjgl.sdl.SDLStdinc.SDL_free(liste);
+            }
+        }
+        if (fenetres.isEmpty()) return;
         List<ByteBuffer> pixels = new ArrayList<>();
         List<SDL_Surface> surfaces = new ArrayList<>();
         try (MemoryStack pile = MemoryStack.stackPush()) {
@@ -38,7 +49,7 @@ public final class Icone {
             // la plus grande en principal, les autres en variantes (barre des tâches, Alt+Tab, titre)
             SDL_Surface principale = surfaces.get(surfaces.size() - 1);
             for (SDL_Surface s : surfaces) if (s != principale) SDLSurface.SDL_AddSurfaceAlternateImage(principale, s);
-            SDLVideo.SDL_SetWindowIcon(fenetre, principale);
+            for (long fenetre : fenetres) SDLVideo.SDL_SetWindowIcon(fenetre, principale);
         } catch (Throwable e) {
             // un échec laisse simplement l'icône Minecraft
         } finally {
