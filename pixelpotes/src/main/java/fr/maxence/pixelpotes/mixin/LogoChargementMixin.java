@@ -21,7 +21,9 @@ import java.io.InputStream;
 public class LogoChargementMixin {
     @Inject(method = "loadContents", at = @At("HEAD"), cancellable = true)
     private void pixelpotes$logo(ResourceManager ressources, CallbackInfoReturnable<TextureContents> retour) {
-        try (InputStream in = LogoChargementMixin.class.getResourceAsStream("/assets/pixelpotes/textures/gui/logo_chargement.png")) {
+        // (passer par une classe du mod : dans un mixin, « LogoChargementMixin.class » désigne la classe de Minecraft,
+        // où l'image du mod est introuvable)
+        try (InputStream in = fr.maxence.pixelpotes.PixelPotes.class.getResourceAsStream("/assets/pixelpotes/textures/gui/logo_chargement.png")) {
             if (in == null) return;
             retour.setReturnValue(new TextureContents(NativeImage.read(in),
                     new TextureMetadataSection(true, true, MipmapStrategy.MEAN, 0f)));
