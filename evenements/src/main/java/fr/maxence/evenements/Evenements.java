@@ -270,10 +270,8 @@ public class Evenements {
                 }))
                 // Programme affiché dans le launcher et sur le site
                 .then(Commands.literal("planifier")
-                        .then(Commands.argument("jour", StringArgumentType.word())
-                                .then(Commands.argument("heure", StringArgumentType.word())
-                                        .then(Commands.argument("texte", StringArgumentType.greedyString())
-                                                .executes(Evenements::planifier)))))
+                        .then(Commands.argument("texte", StringArgumentType.greedyString())
+                                .executes(Evenements::planifier)))
                 .then(Commands.literal("annuler")
                         .then(Commands.argument("numero", IntegerArgumentType.integer(1)).executes(ctx -> {
                             if (!organisateur(ctx)) return 0;
@@ -384,14 +382,16 @@ public class Evenements {
     private static int planifier(CommandContext<CommandSourceStack> ctx) {
         if (!organisateur(ctx)) return 0;
         MinecraftServer s = ctx.getSource().getServer();
-        var date = Programme.lireDate(StringArgumentType.getString(ctx, "jour"), StringArgumentType.getString(ctx, "heure"));
+        // « 28/11 21:00 Titre | description » : jour et heure sont les deux premiers mots
+        String[] morceaux = StringArgumentType.getString(ctx, "texte").trim().split("\\s+", 3);
+        var date = morceaux.length < 3 ? null : Programme.lireDate(morceaux[0], morceaux[1]);
         if (date == null) {
             dire(ctx, "§cDate illisible. Exemples : /event planifier 05/12 21:00 Soirée cache-cache | Venez nombreux !"
                     + " — ou samedi 21h, demain 20h30.");
             return 0;
         }
         // « Titre | description »
-        String texte = StringArgumentType.getString(ctx, "texte");
+        String texte = morceaux[2];
         int barre = texte.indexOf('|');
         String titre = (barre < 0 ? texte : texte.substring(0, barre)).trim();
         String description = barre < 0 ? "" : texte.substring(barre + 1).trim();
