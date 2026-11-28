@@ -32,9 +32,10 @@ sudo -v || { echo "Mot de passe sudo refusé : rien n'a été fait."; exit 1; }
 echo "Recherche des dernières versions…"
 RELEASE=$(curl -fsSL "https://api.github.com/repos/$DEPOT/releases/tags/dernier")
 
-# 2. Pack des joueurs (packwiz + GitHub)
+# 2. Pack des joueurs (packwiz + GitHub) : seuls les mods qui ont une nouvelle version sont touchés
 cd "$PACK"
 RESUME=""
+CHANGES=0
 for MOD in "${MODS[@]}"; do
     ID="${MOD%%:*}"; NOM="${MOD##*:}"
     VERSION=$(echo "$RELEASE" | grep -oE "\"$ID-[0-9]+\.[0-9]+\.[0-9]+\.jar\"" | tr -d '"' \
@@ -43,7 +44,20 @@ for MOD in "${MODS[@]}"; do
         echo "$NOM : pas encore publié, ignoré."
         continue
     fi
-    echo "$NOM : $VERSION"
+    ACTUELLE=""
+    [ -f "mods/$ID.pw.toml" ] && ACTUELLE=$(grep -oE "$ID-[0-9.]+[0-9]\.jar" "mods/$ID.pw.toml" | head -1 | sed -E "s/$ID-(.*)\.jar/\1/")
+    if [ "$ACTUELLE" = "$VERSION" ]; then
+        echo "$NOM : $VERSION (déjà à jour)"
+        continue
+    fi
+    if [ -z "$ACTUELLE" ]; then
+        echo "$NOM : nouveau mod, $VERSION"
+        RESUME="$RESUME $NOM $VERSION (nouveau)"
+    else
+        echo "$NOM : $ACTUELLE -> $VERSION"
+        RESUME="$RESUME $NOM $ACTUELLE -> $VERSION"
+    fi
+    CHANGES=$((CHANGES + 1))
     packwiz remove "$ID" >/dev/null 2>&1 || true
     packwiz url add "$NOM" "$BASE/$ID-$VERSION.jar"
     # Tableau : côté serveur seulement (les joueurs ne le téléchargent pas)
@@ -52,8 +66,14 @@ for MOD in "${MODS[@]}"; do
     case "$ID" in durabilite|pixelpotes)
         [ -f "mods/$ID.pw.toml" ] && sed -i 's/^side = .*/side = "client"/' "mods/$ID.pw.toml";;
     esac
-    RESUME="$RESUME $NOM $VERSION"
 done
+
+# Rien de neuf : on ne touche à rien (sauf demande explicite : ~/maj-serveur.sh --forcer)
+if [ "$CHANGES" = 0 ] && [ "${1:-}" != "--forcer" ]; then
+    echo "Tout est déjà à jour : le serveur n'est pas redémarré."
+    exit 0
+fi
+
 packwiz refresh
 git add -A
 if git diff --cached --quiet; then
@@ -95,5 +115,5 @@ rm -f "$SERVEUR/packwiz.json"
 # 5. Redémarrage
 sudo systemctl daemon-reload
 sudo systemctl restart minecraft
-echo "C'est fait :$RESUME. Le serveur redémarre (environ 1 minute)."
+echo "C'est fait :${RESUME:- rien de neuf (redémarrage forcé)}. Le serveur redémarre (environ 1 minute)."
 echo "Côté joueurs : fermer Minecraft et relancer l'instance depuis Prism."
