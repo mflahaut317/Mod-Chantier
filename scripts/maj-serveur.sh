@@ -61,7 +61,7 @@ for MOD in "${MODS[@]}"; do
     packwiz remove "$ID" >/dev/null 2>&1 || true
     packwiz url add "$NOM" "$BASE/$ID-$VERSION.jar"
     # Tableau : côté serveur seulement (les joueurs ne le téléchargent pas)
-    if { [ "$ID" = "tableau" ] || [ "$ID" = "evenements" ]; } && [ -f "mods/$ID.pw.toml" ]; then sed -i 's/^side = .*/side = "server"/' "mods/$ID.pw.toml"; fi
+    if [ "$ID" = "tableau" ] && [ -f "mods/$ID.pw.toml" ]; then sed -i 's/^side = .*/side = "server"/' "mods/$ID.pw.toml"; fi
     # Durabilité et Pixel Potes : côté joueurs seulement
     case "$ID" in durabilite|pixelpotes)
         [ -f "mods/$ID.pw.toml" ] && sed -i 's/^side = .*/side = "client"/' "mods/$ID.pw.toml";;

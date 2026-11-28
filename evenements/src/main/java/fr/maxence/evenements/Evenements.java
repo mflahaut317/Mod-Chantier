@@ -52,7 +52,8 @@ public class Evenements {
     private static boolean ouvert;
     private static String annonce = "";
 
-    public Evenements() {
+    public Evenements(net.neoforged.bus.api.IEventBus modBus) {
+        modBus.addListener(Evenements::reseau);
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent e) -> commandes(e.getDispatcher()));
         NeoForge.EVENT_BUS.addListener((ServerStartedEvent e) -> Etat.charger(e.getServer()));
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent e) -> CacheCache.arreter(e.getServer()));
@@ -97,6 +98,36 @@ public class Evenements {
                 j.sendSystemMessage(invitation());
             }
         });
+    }
+
+    // ---------- Écran « Événement » (réseau) ----------
+
+    /** « optional » : un joueur sans le mod peut quand même se connecter. */
+    private static void reseau(net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent event) {
+        var r = event.registrar("1").optional();
+        r.playToClient(Paquets.Etat.TYPE, Paquets.Etat.CODEC, (p, c) -> Recu.etat(p));
+        r.playToServer(Paquets.Action.TYPE, Paquets.Action.CODEC, (p, c) -> {
+            if (c.player() instanceof ServerPlayer j) action(j, p.commande());
+        });
+    }
+
+    static void envoyerEtat(ServerPlayer j, boolean ouvrirEcran) {
+        MinecraftServer s = j.level().getServer();
+        java.util.List<String> noms = new java.util.ArrayList<>();
+        for (ServerPlayer p : Etat.participants(s)) noms.add(p.getScoreboardName());
+        boolean dedans = j.level().dimension() == ARENE && Etat.enEvenement(s, j);
+        String programme = new com.google.gson.Gson().toJson(Programme.aVenir(s));
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(j, new Paquets.Etat(ouvert, Etat.estOrganisateur(j),
+                dedans, dedans && j.isCreative(), CacheCache.enCours(), noms, programme, ouvrirEcran));
+    }
+
+    /** Un bouton de l'écran : on exécute la commande correspondante au nom du joueur (mêmes vérifications). */
+    private static void action(ServerPlayer j, String commande) {
+        MinecraftServer s = j.level().getServer();
+        if (commande.startsWith("event ") || commande.startsWith("cachecache ")) {
+            s.getCommands().performPrefixedCommand(j.createCommandSourceStack(), commande);
+        }
+        envoyerEtat(j, false);
     }
 
     // ---------- Actions ----------
@@ -160,6 +191,16 @@ public class Evenements {
 
     private static void commandes(CommandDispatcher<CommandSourceStack> d) {
         d.register(Commands.literal("event")
+                .executes(ctx -> {
+                    ServerPlayer j = joueur(ctx);
+                    if (j != null) envoyerEtat(j, true);
+                    return 1;
+                })
+                .then(Commands.literal("menu").executes(ctx -> {
+                    ServerPlayer j = joueur(ctx);
+                    if (j != null) envoyerEtat(j, true);
+                    return 1;
+                }))
                 .then(Commands.literal("rejoindre").executes(ctx -> {
                     ServerPlayer j = joueur(ctx);
                     if (j == null) return 0;
@@ -353,6 +394,7 @@ public class Evenements {
 
     private static int lancer(CommandContext<CommandSourceStack> ctx, String chercheur, int secondes, int minutes) {
         if (!organisateur(ctx)) return 0;
+        if ("hasard".equalsIgnoreCase(chercheur)) chercheur = null; // depuis l'écran : chercheur au hasard
         String erreur = CacheCache.lancer(ctx.getSource().getServer(), chercheur, secondes, minutes);
         if (erreur != null) {
             dire(ctx, "§c" + erreur);

@@ -6,7 +6,7 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="Maxence"
 description='''
-Soirées événements entre potes : monde d'événement séparé, inventaires sauvegardés, mini-jeux (cache-cache…). Côté serveur uniquement.
+Soirées événements entre potes : monde d'événement séparé, inventaires sauvegardés, mini-jeux (cache-cache…). Écran « Événement » (touche O) pour les joueurs.
 '''
 
 [[dependencies.${mod_id}]]
@@ -14,11 +14,11 @@ Soirées événements entre potes : monde d'événement séparé, inventaires sa
     type="required"
     versionRange="[${neo_version},)"
     ordering="NONE"
-    side="SERVER"
+    side="BOTH"
 
 [[dependencies.${mod_id}]]
     modId="minecraft"
     type="required"
     versionRange="${minecraft_version_range}"
     ordering="NONE"
-    side="SERVER"
+    side="BOTH"
