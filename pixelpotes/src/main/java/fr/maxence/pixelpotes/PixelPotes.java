@@ -21,6 +21,7 @@ public class PixelPotes {
     public static final String MODID = "pixelpotes";
 
     private static boolean enPartie = false;
+    private static boolean iconeFaite = false;
 
     public PixelPotes() {
         Discord.demarrer();
@@ -42,6 +43,10 @@ public class PixelPotes {
     /** Nombre de joueurs connectés, pour le statut Discord (toutes les 5 s). */
     @SubscribeEvent
     static void onTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
+        if (!iconeFaite) {
+            iconeFaite = true;
+            Icone.appliquer();
+        }
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.player.tickCount % 100 != 0) return;
         var connexion = mc.getConnection();
