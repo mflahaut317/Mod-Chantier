@@ -56,8 +56,11 @@ public class EvenementsClient {
     /** Bouton « Événement » sur le bord gauche de l'inventaire (sous ceux de Chantier et du Journal). */
     @SubscribeEvent
     static void onEcranOuvert(ScreenEvent.Init.Post event) {
-        if (!(event.getScreen() instanceof InventoryScreen ecran)) return;
+        var ecran = event.getScreen();
+        // Inventaire normal, et aussi celui du mode créatif (pendant la construction d'un événement)
+        boolean creatif = ecran instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+        if (!(ecran instanceof InventoryScreen) && !creatif) return;
         event.addListener(Button.builder(Component.literal("Événement"), b -> ouvrir())
-                .bounds(4, ecran.height / 2 + 38, 56, 20).build());
+                .bounds(4, creatif ? 4 : ecran.height / 2 + 38, 56, 20).build());
     }
 }
