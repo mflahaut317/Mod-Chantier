@@ -44,6 +44,7 @@ public class EvenementScreen extends Screen {
     // Cache-cache
     private int chercheur = 0; // 0 = au hasard, sinon index dans les participants + 1
     private int secondes = 30, minutes = 5;
+    private int invite = 0; // joueur choisi pour aider à préparer
 
     private record Soiree(String date, String titre, String description) {}
 
@@ -114,7 +115,13 @@ public class EvenementScreen extends Screen {
         if (e.dedans()) bouton("Revenir en survie", x0 + 10, y, 155, b -> commande("event quitter"));
         else {
             Button r = bouton("Rejoindre l'événement", x0 + 10, y, 155, b -> commande("event rejoindre"));
-            r.active = e.ouvert() || e.organisateur();
+            r.active = e.ouvert() || e.organisateur() || e.aide();
+        }
+        if (e.aide() && !e.organisateur()) {
+            Button c = bouton(e.construction() ? "Arrêter de construire" : "Mode construction", x0 + 175, y, 155,
+                    b -> commande("event construire"));
+            c.active = e.dedans();
+            return;
         }
         if (!e.organisateur()) return;
         bouton("Préparer (seul, créatif)", x0 + 175, y, 155, b -> commande("event preparer"));
@@ -127,6 +134,14 @@ public class EvenementScreen extends Screen {
         y += 26;
         Button s = bouton("Placer l'arrivée ici", x0 + 10, y, 155, b -> commande("event spawn"));
         s.active = e.dedans();
+        // Inviter un joueur connecté à préparer avec toi
+        List<String> enLigne = e.enLigne();
+        if (invite >= enLigne.size()) invite = 0;
+        Button choix = bouton(enLigne.isEmpty() ? "Personne d'autre en ligne" : "Aide : " + enLigne.get(invite) + " ▸",
+                x0 + 175, y, 105, b -> { invite = (invite + 1) % Math.max(1, enLigne.size()); rebuildWidgets(); });
+        choix.active = enLigne.size() > 1;
+        Button inv = bouton("Inviter", x0 + 284, y, 46, b -> commande("event inviter " + enLigne.get(invite)));
+        inv.active = !enLigne.isEmpty();
     }
 
     // ---------- Programme ----------
@@ -254,8 +269,8 @@ public class EvenementScreen extends Screen {
     private void dessinerAccueil(GuiGraphicsExtractor g, Paquets.Etat e) {
         g.text(font, e.ouvert() ? "L'événement est OUVERT" : "Pas d'événement ouvert pour le moment",
                 x0 + 10, y0 + 36, e.ouvert() ? VERT : GRIS);
-        g.text(font, e.dedans() ? "Tu es dans le monde d'événement" + (e.construction() ? " (construction)" : "")
-                : "Tu es en survie", x0 + 10, y0 + 50, BLANC);
+        g.text(font, (e.dedans() ? "Tu es dans le monde d'événement" + (e.construction() ? " (construction)" : "")
+                : "Tu es en survie") + (e.aide() && !e.organisateur() ? " — invité à préparer" : ""), x0 + 10, y0 + 50, BLANC);
         int y = y0 + (e.organisateur() ? 152 : 100);
         g.text(font, "Participants (" + e.participants().size() + ") :", x0 + 10, y, OR);
         g.text(font, e.participants().isEmpty() ? "personne" : String.join(", ", e.participants()), x0 + 10, y + 12, GRIS);

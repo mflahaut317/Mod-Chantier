@@ -16,16 +16,18 @@ public final class Paquets {
     }
 
     /** Serveur -> joueur : où en est l'événement (programme en JSON). ouvrir = ouvrir l'écran. */
-    public record Etat(boolean ouvert, boolean organisateur, boolean dedans, boolean construction, boolean jeuEnCours,
-                       List<String> participants, String programme, boolean ouvrirEcran) implements CustomPacketPayload {
+    public record Etat(boolean ouvert, boolean organisateur, boolean aide, boolean dedans, boolean construction, boolean jeuEnCours,
+                       List<String> participants, List<String> enLigne, String programme, boolean ouvrirEcran) implements CustomPacketPayload {
         public static final Type<Etat> TYPE = Paquets.type("etat");
         public static final StreamCodec<ByteBuf, Etat> CODEC = StreamCodec.composite(
                 ByteBufCodecs.BOOL, Etat::ouvert,
                 ByteBufCodecs.BOOL, Etat::organisateur,
+                ByteBufCodecs.BOOL, Etat::aide,
                 ByteBufCodecs.BOOL, Etat::dedans,
                 ByteBufCodecs.BOOL, Etat::construction,
                 ByteBufCodecs.BOOL, Etat::jeuEnCours,
                 ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list()), Etat::participants,
+                ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list()), Etat::enLigne,
                 ByteBufCodecs.STRING_UTF8, Etat::programme,
                 ByteBufCodecs.BOOL, Etat::ouvrirEcran,
                 Etat::new);

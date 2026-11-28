@@ -50,6 +50,16 @@ public class Evenements {
     static final String TAG = "evenement";
 
     private static boolean ouvert;
+    /** Joueurs invités à aider à préparer (peuvent entrer avant l'ouverture et construire). Vidé à la fermeture. */
+    private static final java.util.Set<String> AIDES = new java.util.HashSet<>();
+
+    static boolean estAide(ServerPlayer j) {
+        return AIDES.contains(j.getScoreboardName().toLowerCase(Locale.ROOT));
+    }
+
+    static boolean peutPreparer(ServerPlayer j) {
+        return Etat.estOrganisateur(j) || estAide(j);
+    }
     private static String annonce = "";
 
     public Evenements(net.neoforged.bus.api.IEventBus modBus) {
@@ -117,8 +127,10 @@ public class Evenements {
         for (ServerPlayer p : Etat.participants(s)) noms.add(p.getScoreboardName());
         boolean dedans = j.level().dimension() == ARENE && Etat.enEvenement(s, j);
         String programme = new com.google.gson.Gson().toJson(Programme.aVenir(s));
-        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(j, new Paquets.Etat(ouvert, Etat.estOrganisateur(j),
-                dedans, dedans && j.isCreative(), CacheCache.enCours(), noms, programme, ouvrirEcran));
+        java.util.List<String> enLigne = new java.util.ArrayList<>();
+        for (ServerPlayer p : s.getPlayerList().getPlayers()) if (p != j) enLigne.add(p.getScoreboardName());
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(j, new Paquets.Etat(ouvert, Etat.estOrganisateur(j), estAide(j),
+                dedans, dedans && j.isCreative(), CacheCache.enCours(), noms, enLigne, programme, ouvrirEcran));
     }
 
     /** Un bouton de l'écran : on exécute la commande correspondante au nom du joueur (mêmes vérifications). */
@@ -205,7 +217,7 @@ public class Evenements {
                     ServerPlayer j = joueur(ctx);
                     if (j == null) return 0;
                     MinecraftServer s = ctx.getSource().getServer();
-                    if (!ouvert && !Etat.estOrganisateur(j) && !Etat.enEvenement(s, j)) {
+                    if (!ouvert && !peutPreparer(j) && !Etat.enEvenement(s, j)) {
                         dire(ctx, "§7Aucun événement en cours pour le moment.");
                         return 0;
                     }
@@ -239,6 +251,7 @@ public class Evenements {
                     MinecraftServer s = ctx.getSource().getServer();
                     CacheCache.arreter(s);
                     ouvert = false;
+                    AIDES.clear();
                     for (ServerPlayer j : Etat.participants(s)) quitter(s, j);
                     s.getPlayerList().broadcastSystemMessage(Component.literal("§6§l[Événement] §r§7L'événement est terminé, merci d'être venus !"), false);
                     return 1;
@@ -306,8 +319,11 @@ public class Evenements {
                     return 1;
                 }))
                 .then(Commands.literal("construire").executes(ctx -> {
-                    if (!organisateur(ctx)) return 0;
                     ServerPlayer j = joueur(ctx);
+                    if (j != null && !peutPreparer(j)) {
+                        dire(ctx, "§cRéservé aux organisateurs et à leurs invités.");
+                        return 0;
+                    }
                     if (j == null || j.level().dimension() != ARENE) {
                         dire(ctx, "§cVa d'abord dans le monde d'événement (/event rejoindre).");
                         return 0;
@@ -317,13 +333,28 @@ public class Evenements {
                     dire(ctx, creatif ? "§7Mode construction désactivé." : "§aMode construction : tu peux bâtir la carte. Refais /event construire pour arrêter.");
                     return 1;
                 }))
-                // Console seulement : nommer ou retirer un organisateur
-                .then(Commands.literal("organisateur")
+                // Inviter quelqu'un à aider à préparer (entre avant l'ouverture, peut construire)
+                .then(Commands.literal("inviter")
                         .then(Commands.argument("pseudo", StringArgumentType.word()).executes(ctx -> {
-                            if (joueur(ctx) != null) {
-                                dire(ctx, "§cÀ taper dans la console du serveur.");
+                            if (!organisateur(ctx)) return 0;
+                            String nom = StringArgumentType.getString(ctx, "pseudo");
+                            ServerPlayer invite = ctx.getSource().getServer().getPlayerList().getPlayerByName(nom);
+                            if (invite == null) {
+                                dire(ctx, "§c" + nom + " n'est pas connecté.");
                                 return 0;
                             }
+                            AIDES.add(invite.getScoreboardName().toLowerCase(Locale.ROOT));
+                            invite.sendSystemMessage(Component.literal("§6§l[Événement] §r§e" + (joueur(ctx) == null ? "L'organisateur"
+                                    : joueur(ctx).getScoreboardName()) + " §7t'invite à préparer l'événement avec lui. ")
+                                    .append(Component.literal("§a§l[Rejoindre la préparation]").withStyle(st -> st.withClickEvent(
+                                            new ClickEvent.RunCommand("/event rejoindre")))));
+                            dire(ctx, "§a" + invite.getScoreboardName() + " est invité à préparer (il peut entrer et construire).");
+                            return 1;
+                        })))
+                // Nommer ou retirer un organisateur (console, ou un organisateur en jeu)
+                .then(Commands.literal("organisateur")
+                        .then(Commands.argument("pseudo", StringArgumentType.word()).executes(ctx -> {
+                            if (!organisateur(ctx)) return 0;
                             String p = StringArgumentType.getString(ctx, "pseudo").toLowerCase(Locale.ROOT);
                             boolean ajoute = Etat.ORGANISATEURS.add(p);
                             if (!ajoute) Etat.ORGANISATEURS.remove(p);
