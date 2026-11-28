@@ -15,13 +15,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Remplace l'icône de la fenêtre du jeu (barre des tâches, Alt+Tab) par le logo Pixel Potes. */
-final class Icone {
+public final class Icone {
     private Icone() {}
 
     private static final int[] TAILLES = {16, 32, 48, 64, 128, 256};
 
     /** À appeler sur le fil de rendu (celui qui possède la fenêtre). Depuis la 26.3, la fenêtre est gérée par SDL3. */
-    static void appliquer() {
+    public static void appliquer() {
         long fenetre = SDLVideo.SDL_GL_GetCurrentWindow();
         if (fenetre == 0L) return;
         List<ByteBuffer> pixels = new ArrayList<>();
