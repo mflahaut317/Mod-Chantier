@@ -10,7 +10,20 @@ PACK=~/survie-pack
 SERVEUR=~/survie
 DEPOT=mflahaut317/Mod-Chantier
 BASE="https://github.com/$DEPOT/releases/download/dernier"
-MODS=("chantier:Chantier" "souvenirs:Souvenirs" "tableau:Tableau" "durabilite:Durabilite" "visage:Visage")
+MODS=("chantier:Chantier" "souvenirs:Souvenirs" "tableau:Tableau" "durabilite:Durabilite" "visage:Visage" "pixelpotes:PixelPotes")
+
+# -1. Le script se met à jour tout seul (nouveaux mods ajoutés à la liste, corrections…)
+SCRIPT_URL="https://raw.githubusercontent.com/mflahaut317/Mod-Chantier/main/scripts/maj-serveur.sh"
+if [ -z "${MAJ_SCRIPT_A_JOUR:-}" ]; then
+    NOUVEAU=$(mktemp)
+    if curl -fsSL "$SCRIPT_URL" -o "$NOUVEAU" && [ -s "$NOUVEAU" ] && ! cmp -s "$NOUVEAU" "$0"; then
+        cp "$NOUVEAU" "$0" && chmod +x "$0"
+        rm -f "$NOUVEAU"
+        echo "Script mis à jour, je le relance…"
+        MAJ_SCRIPT_A_JOUR=1 exec "$0" "$@"
+    fi
+    rm -f "$NOUVEAU"
+fi
 
 # 0. Mot de passe sudo demandé tout de suite (sinon le serveur pourrait rester arrêté si sudo expire)
 sudo -v || { echo "Mot de passe sudo refusé : rien n'a été fait."; exit 1; }
@@ -35,7 +48,10 @@ for MOD in "${MODS[@]}"; do
     packwiz url add "$NOM" "$BASE/$ID-$VERSION.jar"
     # Tableau : côté serveur seulement (les joueurs ne le téléchargent pas)
     if [ "$ID" = "tableau" ] && [ -f mods/tableau.pw.toml ]; then sed -i 's/^side = .*/side = "server"/' mods/tableau.pw.toml; fi
-    if [ "$ID" = "durabilite" ] && [ -f mods/durabilite.pw.toml ]; then sed -i 's/^side = .*/side = "client"/' mods/durabilite.pw.toml; fi
+    # Durabilité et Pixel Potes : côté joueurs seulement
+    case "$ID" in durabilite|pixelpotes)
+        [ -f "mods/$ID.pw.toml" ] && sed -i 's/^side = .*/side = "client"/' "mods/$ID.pw.toml";;
+    esac
     RESUME="$RESUME $NOM $VERSION"
 done
 packwiz refresh
