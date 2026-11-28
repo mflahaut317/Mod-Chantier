@@ -23,8 +23,19 @@ public class PixelPotes {
     private static boolean enPartie = false;
     private static boolean iconeFaite = false;
 
+    /** Réglé par le launcher (config/pixelpotes.properties) : faux quand la connexion automatique est désactivée. */
+    private static boolean fermerEnPartant = true;
+
     public PixelPotes() {
         Discord.demarrer();
+        try (var in = java.nio.file.Files.newBufferedReader(
+                net.neoforged.fml.loading.FMLPaths.CONFIGDIR.get().resolve("pixelpotes.properties"))) {
+            java.util.Properties p = new java.util.Properties();
+            p.load(in);
+            fermerEnPartant = !"false".equalsIgnoreCase(p.getProperty("fermer_en_quittant_le_serveur", "true").trim());
+        } catch (Exception ignored) {
+            // pas de fichier : comportement par défaut (le jeu se ferme en quittant le serveur)
+        }
     }
 
     @SubscribeEvent
@@ -55,7 +66,7 @@ public class PixelPotes {
 
     @SubscribeEvent
     static void onEcran(ScreenEvent.Opening event) {
-        if (!enPartie) return;
+        if (!enPartie || !fermerEnPartant) return;
         if (event.getNewScreen() instanceof TitleScreen || event.getNewScreen() instanceof JoinMultiplayerScreen) {
             enPartie = false;
             Minecraft.getInstance().stop();
