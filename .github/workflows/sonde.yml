@@ -11,8 +11,8 @@ jobs:
         run: |
           mkdir -p /tmp/e && cd /tmp/e
           curl -sL -o ed.jar https://maven.neoforged.net/releases/net/neoforged/fancymodloader/earlydisplay/12.0.16/earlydisplay-12.0.16.jar
-          unzip -l ed.jar | grep -viE "\.class$" | head -60
           unzip -q ed.jar
-          ls -R | grep -iE "theme" | head -30
-          for c in $(find . -name "*.class" | grep -iE "theme|Loader" | head -20); do echo "== $c"; javap -p -cp . $(echo ${c#./} | sed 's/\.class$//; s#/#.#g') | head -40; done
-          strings -n 6 $(find . -name "*.class") | grep -iE "theme|\.json|\.png|config/|getenv|fml\.earlyWindow" | sort -u | head -60
+          cat net/neoforged/fml/earlydisplay/theme/theme-default.json; echo; cat net/neoforged/fml/earlydisplay/theme/theme-darkmode.json; echo
+          for c in net/neoforged/fml/earlydisplay/theme/ThemeLoader net/neoforged/fml/earlydisplay/theme/ThemeMojangLogoElement; do javap -p -c -cp . ${c//\//.} | grep -E "ldc|invoke" | head -60; done
+          grep -rl "ThemeLoader" --include=*.class . | head
+          for c in $(grep -rl "ThemeLoader.load\|ThemeLoader" --include=*.class . | grep -v theme/ThemeLoader); do echo "== $c"; javap -p -c -cp . $(echo ${c#./} | sed 's/\.class$//; s#/#.#g') | grep -E "ldc|ThemeLoader|resolve|FMLPaths|getGameDir|config" | head -30; done
