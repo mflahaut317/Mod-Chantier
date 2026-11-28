@@ -83,15 +83,11 @@ else
     git push
 fi
 
-# 2b. Attendre que GitHub serve le nouveau pack (la copie « raw » peut garder l'ancienne version jusqu'à 5 min)
-LOCAL=$(sha256sum "$PACK/pack.toml" | cut -d' ' -f1)
-echo "Attente de la publication du pack sur GitHub…"
-for i in $(seq 1 40); do
-    DISTANT=$(curl -fsSL "https://raw.githubusercontent.com/mflahaut317/survie-pack/main/pack.toml" | sha256sum | cut -d' ' -f1)
-    [ "$DISTANT" = "$LOCAL" ] && break
-    sleep 10
-done
-[ "$DISTANT" = "$LOCAL" ] || echo "Attention : GitHub sert peut-être encore l'ancien pack. Si un mod manque, relance ce script dans 5 minutes."
+# 2b. Le serveur lit le pack à l'adresse de ce commit précis : disponible tout de suite sur GitHub
+#     (l'adresse « main » peut garder l'ancienne version en cache jusqu'à 5 minutes)
+SHA=$(git -C "$PACK" rev-parse HEAD)
+sed -i -E "s#raw\.githubusercontent\.com/mflahaut317/survie-pack/[^/]+/pack\.toml#raw.githubusercontent.com/mflahaut317/survie-pack/$SHA/pack.toml#" "$SERVEUR/start.sh"
+grep -q "$SHA" "$SERVEUR/start.sh" || echo "Attention : adresse du pack introuvable dans start.sh (le serveur lira la version « main »)."
 
 # 3. Arrêt propre du serveur (sauvegarde du monde)
 if screen -list | grep -q '\.mc\b'; then
