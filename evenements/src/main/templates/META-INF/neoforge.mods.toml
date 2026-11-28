@@ -6,7 +6,7 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="Maxence"
 description='''
-Soirées événements entre potes : monde d'événement séparé, inventaires sauvegardés, mini-jeux (cache-cache…). Écran « Événement » (touche G) pour les joueurs.
+Soirées événements entre potes : monde d'événement séparé, inventaires sauvegardés, mini-jeux (cache-cache…). Écran « Événement » (touche F7) pour les joueurs.
 '''
 
 [[dependencies.${mod_id}]]

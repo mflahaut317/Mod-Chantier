@@ -19,12 +19,12 @@ import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
-/** Côté joueur : touche G, bouton « Événement » dans l'inventaire, commande /event. */
+/** Côté joueur : touche F7, bouton « Événement » dans l'inventaire, commande /event. */
 @Mod(value = Evenements.MODID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid = Evenements.MODID, value = Dist.CLIENT)
 public class EvenementsClient {
     static final KeyMapping.Category CATEGORIE = new KeyMapping.Category(Identifier.fromNamespaceAndPath(Evenements.MODID, "evenements"));
-    static final KeyMapping OUVRIR = new KeyMapping("key.evenements.menu", InputConstants.KEY_G, CATEGORIE);
+    static final KeyMapping OUVRIR = new KeyMapping("key.evenements.menu", InputConstants.KEY_F7, CATEGORIE);
 
     public EvenementsClient() {}
 
