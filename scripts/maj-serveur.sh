@@ -10,7 +10,7 @@ PACK=~/survie-pack
 SERVEUR=~/survie
 DEPOT=mflahaut317/Mod-Chantier
 BASE="https://github.com/$DEPOT/releases/download/dernier"
-MODS=("chantier:Chantier" "souvenirs:Souvenirs" "tableau:Tableau" "durabilite:Durabilite" "visage:Visage" "pixelpotes:PixelPotes")
+MODS=("chantier:Chantier" "souvenirs:Souvenirs" "tableau:Tableau" "durabilite:Durabilite" "visage:Visage" "pixelpotes:PixelPotes" "evenements:Evenements")
 
 # -1. Le script se met à jour tout seul (nouveaux mods ajoutés à la liste, corrections…)
 SCRIPT_URL="https://raw.githubusercontent.com/mflahaut317/Mod-Chantier/main/scripts/maj-serveur.sh"
@@ -61,7 +61,7 @@ for MOD in "${MODS[@]}"; do
     packwiz remove "$ID" >/dev/null 2>&1 || true
     packwiz url add "$NOM" "$BASE/$ID-$VERSION.jar"
     # Tableau : côté serveur seulement (les joueurs ne le téléchargent pas)
-    if [ "$ID" = "tableau" ] && [ -f mods/tableau.pw.toml ]; then sed -i 's/^side = .*/side = "server"/' mods/tableau.pw.toml; fi
+    if { [ "$ID" = "tableau" ] || [ "$ID" = "evenements" ]; } && [ -f "mods/$ID.pw.toml" ]; then sed -i 's/^side = .*/side = "server"/' "mods/$ID.pw.toml"; fi
     # Durabilité et Pixel Potes : côté joueurs seulement
     case "$ID" in durabilite|pixelpotes)
         [ -f "mods/$ID.pw.toml" ] && sed -i 's/^side = .*/side = "client"/' "mods/$ID.pw.toml";;

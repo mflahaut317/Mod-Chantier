@@ -44,6 +44,9 @@ jobs:
 
       - name: Build Pixel Potes
         run: ./gradlew -p pixelpotes build
+
+      - name: Build Evenements
+        run: ./gradlew -p evenements build
       - name: Upload jar
         uses: actions/upload-artifact@v4
         with:
@@ -55,6 +58,7 @@ jobs:
             durabilite/build/libs/*.jar
             visage/build/libs/*.jar
             pixelpotes/build/libs/*.jar
+            evenements/build/libs/*.jar
 
       - name: Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -72,3 +76,4 @@ jobs:
             durabilite/build/libs/*.jar
             visage/build/libs/*.jar
             pixelpotes/build/libs/*.jar
+            evenements/build/libs/*.jar
