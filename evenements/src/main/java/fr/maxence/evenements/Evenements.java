@@ -73,6 +73,15 @@ public class Evenements {
         NeoForge.EVENT_BUS.addListener((EntityJoinLevelEvent e) -> {
             if (e.getLevel().dimension() == ARENE && e.getEntity() instanceof Enemy) e.setCanceled(true);
         });
+        // Ni animaux ni monstres qui apparaissent tout seuls (chevaux de la plaine…) : seuls ceux posés à la main restent
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent e) -> {
+            if (e.getLevel().getLevel().dimension() != ARENE) return;
+            var raison = e.getSpawnType();
+            if (raison == net.minecraft.world.entity.EntitySpawnReason.NATURAL
+                    || raison == net.minecraft.world.entity.EntitySpawnReason.CHUNK_GENERATION) {
+                e.setSpawnCancelled(true);
+            }
+        });
         // Mort quand même (/kill…) : on revient dans le monde d'événement, pas chez soi
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerRespawnEvent e) -> {
             if (e.getEntity() instanceof ServerPlayer j && Etat.enEvenement(j.level().getServer(), j)) {
