@@ -22,3 +22,6 @@ Petits réglages de l'expérience Pixel Potes (quitter le jeu en quittant le ser
     versionRange="${minecraft_version_range}"
     ordering="NONE"
     side="CLIENT"
+
+[[mixins]]
+    config="pixelpotes.mixins.json"
