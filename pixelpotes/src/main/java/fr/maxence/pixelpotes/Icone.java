@@ -1,7 +1,9 @@
 package fr.maxence.pixelpotes;
 
-import org.lwjgl.glfw.GLFW;
-import org.lwjgl.glfw.GLFWImage;
+import org.lwjgl.sdl.SDLPixels;
+import org.lwjgl.sdl.SDLSurface;
+import org.lwjgl.sdl.SDLVideo;
+import org.lwjgl.sdl.SDL_Surface;
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
@@ -18,26 +20,29 @@ final class Icone {
 
     private static final int[] TAILLES = {16, 32, 48, 64, 128, 256};
 
-    /** À appeler sur le fil de rendu (celui qui possède la fenêtre). */
+    /** À appeler sur le fil de rendu (celui qui possède la fenêtre). Depuis la 26.3, la fenêtre est gérée par SDL3. */
     static void appliquer() {
-        long fenetre = GLFW.glfwGetCurrentContext();
+        long fenetre = SDLVideo.SDL_GL_GetCurrentWindow();
         if (fenetre == 0L) return;
         List<ByteBuffer> pixels = new ArrayList<>();
+        List<SDL_Surface> surfaces = new ArrayList<>();
         try (MemoryStack pile = MemoryStack.stackPush()) {
-            GLFWImage.Buffer images = GLFWImage.malloc(TAILLES.length, pile);
-            int n = 0;
             for (int taille : TAILLES) {
                 ByteBuffer image = charger("/assets/pixelpotes/icones/icone_" + taille + ".png", pile);
                 if (image == null) continue;
                 pixels.add(image);
-                images.position(n++).width(taille).height(taille).pixels(image);
+                SDL_Surface s = SDLSurface.SDL_CreateSurfaceFrom(taille, taille, SDLPixels.SDL_PIXELFORMAT_RGBA32, image, taille * 4);
+                if (s != null) surfaces.add(s);
             }
-            if (n == 0) return;
-            images.position(0).limit(n);
-            GLFW.glfwSetWindowIcon(fenetre, images);
+            if (surfaces.isEmpty()) return;
+            // la plus grande en principal, les autres en variantes (barre des tâches, Alt+Tab, titre)
+            SDL_Surface principale = surfaces.get(surfaces.size() - 1);
+            for (SDL_Surface s : surfaces) if (s != principale) SDLSurface.SDL_AddSurfaceAlternateImage(principale, s);
+            SDLVideo.SDL_SetWindowIcon(fenetre, principale);
         } catch (Throwable e) {
-            // macOS refuse les icônes de fenêtre ; ailleurs, un échec laisse simplement l'icône Minecraft
+            // un échec laisse simplement l'icône Minecraft
         } finally {
+            for (SDL_Surface s : surfaces) SDLSurface.SDL_DestroySurface(s);
             for (ByteBuffer p : pixels) STBImage.stbi_image_free(p);
         }
     }
