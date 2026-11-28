@@ -35,7 +35,8 @@ import java.util.Locale;
  * Côté serveur uniquement : les joueurs n'ont rien à installer.
  *
  * Joueurs : /event rejoindre, /event quitter
- * Organisateurs : /event ouvrir [message], /event fermer, /event spawn, /event construire,
+ * Organisateurs : /event preparer, /event ouvrir [message], /event fermer, /event spawn, /event construire,
+ *                 /event planifier <jour> <heure> <titre | description>, /event annuler <n>, /event programme,
  *                 /cachecache lancer [chercheur] [secondes] [minutes], /cachecache stop
  * Console : /event organisateur <pseudo>
  */
@@ -201,6 +202,53 @@ public class Evenements {
                     s.getPlayerList().broadcastSystemMessage(Component.literal("§6§l[Événement] §r§7L'événement est terminé, merci d'être venus !"), false);
                     return 1;
                 }))
+                // Préparer : l'organisateur entre seul et construit, l'événement reste fermé aux autres
+                .then(Commands.literal("preparer").executes(ctx -> {
+                    if (!organisateur(ctx)) return 0;
+                    ServerPlayer j = joueur(ctx);
+                    if (j == null) return 0;
+                    MinecraftServer s = ctx.getSource().getServer();
+                    rejoindre(s, j);
+                    Outils.commande(s, "gamemode creative " + j.getScoreboardName());
+                    dire(ctx, "§aMode préparation : tu es seul (l'événement est " + (ouvert ? "§cOUVERT§a" : "fermé") + "), en créatif."
+                            + " §7/event ouvrir quand tout est prêt.");
+                    return 1;
+                }))
+                // Programme affiché dans le launcher et sur le site
+                .then(Commands.literal("planifier")
+                        .then(Commands.argument("jour", StringArgumentType.word())
+                                .then(Commands.argument("heure", StringArgumentType.word())
+                                        .then(Commands.argument("texte", StringArgumentType.greedyString())
+                                                .executes(Evenements::planifier)))))
+                .then(Commands.literal("annuler")
+                        .then(Commands.argument("numero", IntegerArgumentType.integer(1)).executes(ctx -> {
+                            if (!organisateur(ctx)) return 0;
+                            MinecraftServer s = ctx.getSource().getServer();
+                            try {
+                                Programme.Soiree retiree = Programme.retirer(s, IntegerArgumentType.getInteger(ctx, "numero"));
+                                if (retiree == null) {
+                                    dire(ctx, "§cPas d'événement à ce numéro (voir /event programme).");
+                                    return 0;
+                                }
+                                dire(ctx, "§7« " + retiree.titre() + " » retiré du programme.");
+                            } catch (Exception e) {
+                                dire(ctx, "§cImpossible d'enregistrer le programme.");
+                                return 0;
+                            }
+                            ServerPlayer j = joueur(ctx);
+                            Programme.publier(s, t -> Programme.dire(j, s, t));
+                            return 1;
+                        })))
+                .then(Commands.literal("programme").executes(ctx -> {
+                    var liste = Programme.aVenir(ctx.getSource().getServer());
+                    if (liste.isEmpty()) dire(ctx, "§7Aucun événement prévu.");
+                    for (int i = 0; i < liste.size(); i++) {
+                        var e = liste.get(i);
+                        dire(ctx, "§6" + (i + 1) + ". §e" + e.titre() + " §7— " + Programme.lisible(e.date())
+                                + (e.description().isBlank() ? "" : " — " + e.description()));
+                    }
+                    return 1;
+                }))
                 .then(Commands.literal("spawn").executes(ctx -> {
                     if (!organisateur(ctx)) return 0;
                     ServerPlayer j = joueur(ctx);
@@ -261,8 +309,42 @@ public class Evenements {
                 })));
     }
 
+    private static int planifier(CommandContext<CommandSourceStack> ctx) {
+        if (!organisateur(ctx)) return 0;
+        MinecraftServer s = ctx.getSource().getServer();
+        var date = Programme.lireDate(StringArgumentType.getString(ctx, "jour"), StringArgumentType.getString(ctx, "heure"));
+        if (date == null) {
+            dire(ctx, "§cDate illisible. Exemples : /event planifier 05/12 21:00 Soirée cache-cache | Venez nombreux !"
+                    + " — ou samedi 21h, demain 20h30.");
+            return 0;
+        }
+        // « Titre | description »
+        String texte = StringArgumentType.getString(ctx, "texte");
+        int barre = texte.indexOf('|');
+        String titre = (barre < 0 ? texte : texte.substring(0, barre)).trim();
+        String description = barre < 0 ? "" : texte.substring(barre + 1).trim();
+        try {
+            Programme.ajouter(s, date, titre, description);
+        } catch (Exception e) {
+            dire(ctx, "§cImpossible d'enregistrer le programme.");
+            return 0;
+        }
+        dire(ctx, "§a« " + titre + " » prévu " + Programme.lisible(date.toOffsetDateTime().toString()) + ". §7Publication…");
+        ServerPlayer j = joueur(ctx);
+        Programme.publier(s, t -> Programme.dire(j, s, t));
+        return 1;
+    }
+
     private static int ouvrir(CommandContext<CommandSourceStack> ctx, String message) {
         if (!organisateur(ctx)) return 0;
+        // Sans message : le titre de l'événement prévu maintenant (s'il y en a un)
+        if (message.isBlank()) {
+            var prochains = Programme.aVenir(ctx.getSource().getServer());
+            if (!prochains.isEmpty() && java.time.ZonedDateTime.parse(prochains.get(0).date())
+                    .isBefore(java.time.ZonedDateTime.now(Programme.FUSEAU).plusHours(1))) {
+                message = prochains.get(0).titre();
+            }
+        }
         ouvert = true;
         annonce = message;
         ctx.getSource().getServer().getPlayerList().broadcastSystemMessage(invitation(), false);
