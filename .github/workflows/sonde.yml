@@ -11,9 +11,8 @@ jobs:
       - name: Sources Minecraft
         run: |
           ./gradlew -p pixelpotes compileJava -q || true
-          J=$(find ~/.gradle pixelpotes/build . -name "*.jar" 2>/dev/null | grep -iE "minecraft.*(sources|merged|patched)|neoforge.*sources" | head -20)
-          echo "$J"
-          for j in $J; do
-            unzip -l "$j" | grep -E "LoadingOverlay|LogoTexture" | head
-            unzip -p "$j" net/minecraft/client/gui/screens/LoadingOverlay.java 2>/dev/null | head -150 && break
-          done
+          J=pixelpotes/build/moddev/artifacts/minecraft-patched-26.3.0.115.jar
+          unzip -l "$J" | grep -iE "LoadingOverlay|Logo" | head -20
+          mkdir -p /tmp/x && cd /tmp/x && unzip -q -o "$GITHUB_WORKSPACE/$J" 'net/minecraft/client/gui/screens/LoadingOverlay*' 'com/mojang/blaze3d/platform/Window*' 'net/minecraft/client/renderer/texture/ReloadableTexture*' 'net/minecraft/client/renderer/texture/TextureContents*' || true
+          for f in $(find /tmp/x -name "*.class" | grep -E "LoadingOverlay|Window.class|ReloadableTexture|TextureContents"); do echo "== $f"; javap -p -cp /tmp/x "$(echo ${f#/tmp/x/} | sed 's/\.class$//; s#/#.#g')"; done
+          javap -p -c -cp /tmp/x 'net.minecraft.client.gui.screens.LoadingOverlay$LogoTexture' | head -80
