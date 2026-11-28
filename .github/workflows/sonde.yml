@@ -1,0 +1,18 @@
+name: Sonde
+on: workflow_dispatch
+jobs:
+  sonde:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { java-version: '25', distribution: 'temurin' }
+      - name: Ecran de chargement NeoForge
+        run: |
+          mkdir -p /tmp/e && cd /tmp/e
+          curl -sL -o ed.jar https://maven.neoforged.net/releases/net/neoforged/fancymodloader/earlydisplay/12.0.16/earlydisplay-12.0.16.jar
+          unzip -l ed.jar | grep -viE "\.class$" | head -60
+          unzip -q ed.jar
+          ls -R | grep -iE "theme" | head -30
+          for c in $(find . -name "*.class" | grep -iE "theme|Loader" | head -20); do echo "== $c"; javap -p -cp . $(echo ${c#./} | sed 's/\.class$//; s#/#.#g') | head -40; done
+          strings -n 6 $(find . -name "*.class") | grep -iE "theme|\.json|\.png|config/|getenv|fml\.earlyWindow" | sort -u | head -60
