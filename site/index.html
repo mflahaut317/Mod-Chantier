@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pixel Potes — La survie entre potes</title>
+<meta name="description" content="Télécharge le launcher Pixel Potes et rejoins la survie entre potes en un clic.">
+<link rel="icon" href="logo.png">
+<style>
+  :root { --vert:#5bd16b; --vert-fonce:#2f8a3c; --texte:#eef2ee; --doux:#9aa59c; --carte:rgba(18,22,19,.8); --bord:rgba(255,255,255,.08); }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    font-family:"Segoe UI",system-ui,sans-serif; color:var(--texte); min-height:100vh;
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(91,209,107,.22), transparent 55%),
+      radial-gradient(ellipse at 100% 100%, rgba(80,140,255,.14), transparent 50%),
+      linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px) 0 0/24px 24px,
+      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0/24px 24px,
+      #0d110e;
+  }
+  main { max-width:920px; margin:0 auto; padding:56px 24px 32px; }
+  header { display:flex; align-items:center; gap:18px; }
+  header img { width:72px; height:72px; transform:rotate(-6deg); }
+  h1 { font-size:44px; font-weight:900; letter-spacing:5px; line-height:1; }
+  .sous-titre { color:var(--doux); margin-top:8px; letter-spacing:1px; }
+  .hero { margin-top:40px; display:flex; flex-wrap:wrap; align-items:center; gap:28px; }
+  .hero p { flex:1; min-width:260px; font-size:18px; line-height:1.55; color:#cfd8d1; }
+  .bouton {
+    display:inline-block; text-decoration:none; font:900 22px "Segoe UI",sans-serif; letter-spacing:3px;
+    color:#08200d; background:linear-gradient(180deg,#7ee88b,var(--vert)); border-radius:12px; padding:18px 42px;
+    box-shadow:0 6px 0 var(--vert-fonce), 0 10px 30px rgba(91,209,107,.35); transition:transform .08s, box-shadow .08s, filter .2s;
+  }
+  .bouton:hover { filter:brightness(1.07); }
+  .bouton:active { transform:translateY(4px); box-shadow:0 2px 0 var(--vert-fonce), 0 6px 20px rgba(91,209,107,.3); }
+  .mini { display:block; margin-top:10px; font-size:12px; color:var(--doux); text-align:center; }
+  .carte { background:var(--carte); border:1px solid var(--bord); border-radius:14px; padding:20px 22px; }
+  .serveur { margin-top:36px; display:flex; flex-wrap:wrap; gap:16px 28px; align-items:center; }
+  .etat { display:flex; align-items:center; gap:10px; font-weight:700; font-size:18px; }
+  .point { width:12px; height:12px; border-radius:50%; background:#666; }
+  .point.on { background:var(--vert); box-shadow:0 0 12px var(--vert); }
+  .point.off { background:#ff5c5c; }
+  .serveur .info { color:var(--doux); }
+  .noms { display:flex; flex-wrap:wrap; gap:6px; }
+  .noms span { background:rgba(91,209,107,.14); color:var(--vert); padding:4px 10px; border-radius:99px; font-size:13px; }
+  h2 { margin:44px 0 16px; font-size:14px; text-transform:uppercase; letter-spacing:2px; color:var(--doux); }
+  .etapes { display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:16px; }
+  .etape .num { width:34px; height:34px; border-radius:9px; display:grid; place-items:center; font-weight:900; color:#08200d; margin-bottom:12px; }
+  .etape:nth-child(1) .num { background:var(--vert); }
+  .etape:nth-child(2) .num { background:#f2c94c; }
+  .etape:nth-child(3) .num { background:#56a0ff; }
+  .etape h3 { font-size:17px; margin-bottom:8px; }
+  .etape p { color:#c2ccc4; line-height:1.5; font-size:14px; }
+  .etape b { color:var(--texte); }
+  .faq p { color:#c2ccc4; line-height:1.55; margin-bottom:10px; font-size:14px; }
+  footer { margin-top:48px; text-align:center; font-size:11px; color:rgba(255,255,255,.3); line-height:1.6; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="logo.png" alt="">
+    <div>
+      <h1>PIXEL POTES</h1>
+      <div class="sous-titre">La survie entre potes</div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <p>Un seul programme pour rejoindre le serveur : il installe tout, garde les mods à jour et te connecte directement à la survie. Tu n'as rien à régler.</p>
+    <div>
+      <a class="bouton" href="PixelPotes-Setup.exe" download>TÉLÉCHARGER</a>
+      <span class="mini">Windows 10 / 11 · 2 Mo</span>
+    </div>
+  </section>
+
+  <section class="carte serveur">
+    <div class="etat"><span class="point" id="point"></span><span id="etat">Serveur…</span></div>
+    <div class="info" id="info"></div>
+    <div class="noms" id="noms"></div>
+  </section>
+
+  <h2>Installation en 3 étapes</h2>
+  <section class="etapes">
+    <div class="carte etape">
+      <div class="num">1</div>
+      <h3>Télécharge et installe</h3>
+      <p>Clique sur <b>Télécharger</b>, puis ouvre <b>PixelPotes-Setup.exe</b>. Si ton navigateur demande, choisis <b>Conserver</b>.</p>
+    </div>
+    <div class="carte etape">
+      <div class="num">2</div>
+      <h3>Passe l'avertissement Windows</h3>
+      <p>Windows affiche « Windows a protégé votre ordinateur » : clique sur <b>Informations complémentaires</b> puis <b>Exécuter quand même</b>. C'est normal pour un programme fait maison.</p>
+    </div>
+    <div class="carte etape">
+      <div class="num">3</div>
+      <h3>Connecte ton compte</h3>
+      <p>Clique sur <b>JOUER</b>. La première fois, une fenêtre s'ouvre : <b>Comptes</b> → <b>Ajouter Microsoft</b>. Ferme-la, reclique sur JOUER : tu arrives sur le serveur.</p>
+    </div>
+  </section>
+
+  <h2>Questions</h2>
+  <section class="carte faq">
+    <p><b>Il me faut Minecraft ?</b> Oui, un compte Minecraft Java Edition acheté (le même compte Microsoft que d'habitude).</p>
+    <p><b>Le premier lancement est long ?</b> Quelques minutes : le launcher télécharge Java, le jeu et les mods. Ensuite, c'est rapide.</p>
+    <p><b>Et les mises à jour ?</b> Automatiques : à chaque JOUER, les mods se mettent à jour tout seuls.</p>
+  </section>
+
+  <footer>
+    Pixel Potes utilise Prism Launcher (open source) pour lancer le jeu.<br>
+    Pas un produit officiel Minecraft. Non approuvé par Mojang ni Microsoft, et sans lien avec eux.
+  </footer>
+</main>
+<script>
+  // État du serveur via l'API publique mcsrvstat.us
+  fetch('https://api.mcsrvstat.us/3/dedication-rubbish.tun.ply.gg')
+    .then(r => r.json())
+    .then(d => {
+      const on = !!d.online;
+      document.getElementById('point').className = 'point ' + (on ? 'on' : 'off');
+      document.getElementById('etat').textContent = on ? 'Serveur en ligne' : 'Serveur hors ligne';
+      if (on && d.players) {
+        const n = d.players.online || 0;
+        document.getElementById('info').textContent = n === 0 ? 'Personne pour le moment' : `${n} joueur${n > 1 ? 's' : ''} connecté${n > 1 ? 's' : ''}`;
+        const noms = document.getElementById('noms');
+        for (const j of (d.players.list || [])) {
+          const s = document.createElement('span');
+          s.textContent = j.name || j;
+          noms.appendChild(s);
+        }
+      }
+    })
+    .catch(() => { document.getElementById('etat').textContent = 'État du serveur indisponible'; });
+</script>
+</body>
+</html>
